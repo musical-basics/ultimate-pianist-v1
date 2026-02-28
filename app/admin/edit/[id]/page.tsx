@@ -329,19 +329,31 @@ export default function AdminEditor() {
                 // Sort by measure number
                 const sorted = [...result.anchors].sort((a, b) => a.measure - b.measure)
 
-                // Progressive reveal: add anchors one at a time with delay
-                setAnchors([]) // Clear existing
-                for (let i = 0; i < sorted.length; i++) {
-                    const batch = sorted.slice(0, i + 1)
-                    setAnchors(batch)
-                    setAiStatus(`Mapping measure ${sorted[i].measure} → ${sorted[i].time.toFixed(2)}s  (${i + 1}/${sorted.length})`)
-                    // Small delay so the user can see each anchor appear on the waveform
-                    await new Promise((r) => setTimeout(r, 120))
-                }
+                // Find which measures are already manually mapped
+                const existingMeasures = new Set(anchors.map((a) => a.measure))
+                const newOnly = sorted.filter((a) => !existingMeasures.has(a.measure))
+                const keepExisting = [...anchors] // preserve manual mappings
 
-                console.log('[AI] Prediction complete:', sorted.length, 'anchors')
-                setAiStatus(`Done! ${sorted.length} anchors mapped.`)
-                setTimeout(() => setAiStatus(null), 3000)
+                if (newOnly.length === 0) {
+                    setAiStatus(`All ${sorted.length} measures already mapped — nothing to add.`)
+                    setTimeout(() => setAiStatus(null), 3000)
+                } else {
+                    setAiStatus(`Keeping ${existingMeasures.size} manual anchors, adding ${newOnly.length} AI anchors...`)
+                    await new Promise((r) => setTimeout(r, 500))
+
+                    // Progressive reveal: add new AI anchors one at a time
+                    let merged = [...keepExisting]
+                    for (let i = 0; i < newOnly.length; i++) {
+                        merged = [...merged, newOnly[i]].sort((a, b) => a.measure - b.measure)
+                        setAnchors(merged)
+                        setAiStatus(`AI → measure ${newOnly[i].measure} → ${newOnly[i].time.toFixed(2)}s  (${i + 1}/${newOnly.length} new)`)
+                        await new Promise((r) => setTimeout(r, 120))
+                    }
+
+                    console.log('[AI] Prediction complete:', newOnly.length, 'new anchors added,', existingMeasures.size, 'kept')
+                    setAiStatus(`Done! ${newOnly.length} new anchors added (${existingMeasures.size} manual kept).`)
+                    setTimeout(() => setAiStatus(null), 3000)
+                }
             } else {
                 setAiStatus('AI returned no anchors — try again or map manually.')
                 setTimeout(() => setAiStatus(null), 4000)
