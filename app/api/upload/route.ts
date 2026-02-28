@@ -6,12 +6,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { uploadAudio, uploadXml, uploadMidi } from '@/lib/services/configService'
 
-export const config = {
-    api: {
-        bodyParser: false,
-    },
-}
-
 export async function POST(request: NextRequest) {
     try {
         const formData = await request.formData()
