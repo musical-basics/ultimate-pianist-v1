@@ -91,19 +91,19 @@ export const ScoreControls: React.FC<ScoreControlsProps> = ({
             <div className={`w-px h-5 ${darkMode ? 'bg-zinc-600' : 'bg-zinc-300'} mx-1`} />
 
             {/* Effects */}
-            <Button variant="ghost" size="sm" onClick={onHighlightToggle}
+            <Button variant="ghost" size="sm" onClick={onHighlightToggle} title="Highlight active note"
                 className={cn('h-7 px-2', highlightNote ? 'text-amber-400' : darkMode ? 'text-zinc-500' : 'text-zinc-400')}>
                 <Crosshair className="w-3.5 h-3.5" />
             </Button>
-            <Button variant="ghost" size="sm" onClick={onGlowToggle}
+            <Button variant="ghost" size="sm" onClick={onGlowToggle} title="Glow effect"
                 className={cn('h-7 px-2', glowEffect ? 'text-blue-400' : darkMode ? 'text-zinc-500' : 'text-zinc-400')}>
                 <Sparkles className="w-3.5 h-3.5" />
             </Button>
-            <Button variant="ghost" size="sm" onClick={onPopToggle}
+            <Button variant="ghost" size="sm" onClick={onPopToggle} title="Pop effect (scale up)"
                 className={cn('h-7 px-2', popEffect ? 'text-green-400' : darkMode ? 'text-zinc-500' : 'text-zinc-400')}>
                 <Zap className="w-3.5 h-3.5" />
             </Button>
-            <Button variant="ghost" size="sm" onClick={onJumpToggle}
+            <Button variant="ghost" size="sm" onClick={onJumpToggle} title="Jump effect (bounce up)"
                 className={cn('h-7 px-2', jumpEffect ? 'text-pink-400' : darkMode ? 'text-zinc-500' : 'text-zinc-400')}>
                 <ArrowUpFromDot className="w-3.5 h-3.5" />
             </Button>
@@ -111,15 +111,15 @@ export const ScoreControls: React.FC<ScoreControlsProps> = ({
             <div className={`w-px h-5 ${darkMode ? 'bg-zinc-600' : 'bg-zinc-300'} mx-1`} />
 
             {/* View controls */}
-            <Button variant="ghost" size="sm" onClick={onDarkModeToggle}
+            <Button variant="ghost" size="sm" onClick={onDarkModeToggle} title={darkMode ? 'Light mode' : 'Dark mode'}
                 className={cn('h-7 px-2', darkMode ? 'text-yellow-400' : 'text-zinc-500')}>
                 {darkMode ? <Sun className="w-3.5 h-3.5" /> : <Moon className="w-3.5 h-3.5" />}
             </Button>
-            <Button variant="ghost" size="sm" onClick={onLockToggle}
+            <Button variant="ghost" size="sm" onClick={onLockToggle} title={isLocked ? 'Auto-scroll ON' : 'Auto-scroll OFF'}
                 className={cn('h-7 px-2', isLocked ? 'text-purple-400' : darkMode ? 'text-zinc-500' : 'text-zinc-400')}>
                 {isLocked ? <Lock className="w-3.5 h-3.5" /> : <Unlock className="w-3.5 h-3.5" />}
             </Button>
-            <Button variant="ghost" size="sm" onClick={onCursorToggle}
+            <Button variant="ghost" size="sm" onClick={onCursorToggle} title="Show/hide cursor"
                 className={cn('h-7 px-2', showCursor ? 'text-blue-400' : darkMode ? 'text-zinc-500' : 'text-zinc-400')}>
                 <Crosshair className="w-3.5 h-3.5" />
             </Button>
