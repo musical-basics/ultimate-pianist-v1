@@ -27,9 +27,6 @@ import type { SongConfig, Anchor, ParsedMidi } from '@/lib/types'
 import {
     fetchConfigById,
     updateConfigAction,
-    uploadAudioAction,
-    uploadXmlAction,
-    uploadMidiAction,
 } from '@/app/actions/config'
 
 export default function AdminEditor() {
@@ -148,7 +145,11 @@ export default function AdminEditor() {
         try {
             const formData = new FormData()
             formData.append('file', file)
-            const url = await uploadAudioAction(formData, configId)
+            formData.append('configId', configId)
+            formData.append('fileType', 'audio')
+            const res = await fetch('/api/upload', { method: 'POST', body: formData })
+            const { url, error } = await res.json()
+            if (error) throw new Error(error)
             await updateConfigAction(configId, { audio_url: url })
             setConfig((prev) => prev ? { ...prev, audio_url: url } : prev)
             console.log('[Admin] Audio uploaded:', url)
@@ -165,7 +166,11 @@ export default function AdminEditor() {
         try {
             const formData = new FormData()
             formData.append('file', file)
-            const url = await uploadXmlAction(formData, configId)
+            formData.append('configId', configId)
+            formData.append('fileType', 'xml')
+            const res = await fetch('/api/upload', { method: 'POST', body: formData })
+            const { url, error } = await res.json()
+            if (error) throw new Error(error)
             await updateConfigAction(configId, { xml_url: url })
             setConfig((prev) => prev ? { ...prev, xml_url: url } : prev)
             console.log('[Admin] XML uploaded:', url)
@@ -182,7 +187,11 @@ export default function AdminEditor() {
         try {
             const formData = new FormData()
             formData.append('file', file)
-            const url = await uploadMidiAction(formData, configId)
+            formData.append('configId', configId)
+            formData.append('fileType', 'midi')
+            const res = await fetch('/api/upload', { method: 'POST', body: formData })
+            const { url, error } = await res.json()
+            if (error) throw new Error(error)
             await updateConfigAction(configId, { midi_url: url })
             setConfig((prev) => prev ? { ...prev, midi_url: url } : prev)
 

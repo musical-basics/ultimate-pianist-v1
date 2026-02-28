@@ -7,11 +7,6 @@
 
 import * as React from 'react'
 import { useRef, useEffect, useState, useCallback } from 'react'
-import {
-    ResizablePanelGroup,
-    ResizablePanel,
-    ResizableHandle,
-} from '@/components/ui/resizable'
 import { ScrollView } from '@/components/score/ScrollView'
 import { PianoKeyboard } from '@/components/synthesia/PianoKeyboard'
 import { useAppStore } from '@/lib/store'
@@ -154,65 +149,89 @@ export const SplitScreenLayout: React.FC<SplitScreenLayoutProps> = ({
         setCurrentMeasure(measure)
     }, [setCurrentMeasure])
 
+    // ─── Drag-to-resize state ─────────────────────────────────────
+    const [topPercent, setTopPercent] = useState(45)
+    const isDraggingRef = useRef(false)
+    const containerFullRef = useRef<HTMLDivElement>(null)
+
+    const onMouseDown = useCallback((e: React.MouseEvent) => {
+        e.preventDefault()
+        isDraggingRef.current = true
+
+        const onMouseMove = (ev: MouseEvent) => {
+            if (!isDraggingRef.current || !containerFullRef.current) return
+            const rect = containerFullRef.current.getBoundingClientRect()
+            const pct = ((ev.clientY - rect.top) / rect.height) * 100
+            setTopPercent(Math.max(15, Math.min(85, pct)))
+        }
+
+        const onMouseUp = () => {
+            isDraggingRef.current = false
+            document.removeEventListener('mousemove', onMouseMove)
+            document.removeEventListener('mouseup', onMouseUp)
+        }
+
+        document.addEventListener('mousemove', onMouseMove)
+        document.addEventListener('mouseup', onMouseUp)
+    }, [])
+
     return (
-        <div className="flex flex-col h-full w-full overflow-hidden bg-zinc-950">
+        <div ref={containerFullRef} className="flex flex-col h-full w-full overflow-hidden bg-zinc-950">
             {/* Optional header/toolbar */}
             {children}
 
-            {/* Split layout */}
-            <ResizablePanelGroup direction="vertical" className="flex-1">
-                {/* Top: Sheet Music */}
-                <ResizablePanel defaultSize={45} minSize={20} maxSize={80}>
-                    <ScrollView
-                        xmlUrl={xmlUrl}
-                        anchors={anchors}
-                        beatAnchors={beatAnchors}
-                        isPlaying={isPlaying}
-                        isAdmin={isAdmin}
-                        darkMode={darkMode}
-                        revealMode={revealMode}
-                        highlightNote={highlightNote}
-                        glowEffect={glowEffect}
-                        popEffect={popEffect}
-                        isLocked={isLocked}
-                        cursorPosition={cursorPosition}
-                        showCursor={showCursor}
-                        onMeasureChange={handleMeasureChange}
-                    />
-                </ResizablePanel>
-
-                <ResizableHandle
-                    withHandle
-                    className="bg-zinc-700 h-2 data-[resize-handle-state=hover]:bg-purple-500 data-[resize-handle-state=drag]:bg-purple-500 transition-colors [&>div]:bg-zinc-600 [&>div]:h-5 [&>div]:w-8 [&>div]:rounded-full [&>div]:border-zinc-500"
+            {/* Top: Sheet Music */}
+            <div style={{ height: `${topPercent}%` }} className="relative overflow-hidden shrink-0">
+                <ScrollView
+                    xmlUrl={xmlUrl}
+                    anchors={anchors}
+                    beatAnchors={beatAnchors}
+                    isPlaying={isPlaying}
+                    isAdmin={isAdmin}
+                    darkMode={darkMode}
+                    revealMode={revealMode}
+                    highlightNote={highlightNote}
+                    glowEffect={glowEffect}
+                    popEffect={popEffect}
+                    isLocked={isLocked}
+                    cursorPosition={cursorPosition}
+                    showCursor={showCursor}
+                    onMeasureChange={handleMeasureChange}
                 />
+            </div>
 
-                {/* Bottom: Waterfall + Piano */}
-                <ResizablePanel defaultSize={55} minSize={20} maxSize={80}>
-                    <div className="flex flex-col h-full">
-                        {/* Waterfall canvas */}
-                        <div className="flex-1 relative bg-black/50">
-                            <div
-                                ref={waterfallContainerRef}
-                                className="relative w-full h-full"
-                            >
-                                {!rendererReady && (
-                                    <div className="absolute inset-0 flex items-center justify-center">
-                                        <div className="text-center space-y-2 opacity-30">
-                                            <div className="w-10 h-10 mx-auto rounded-full border-2 border-dashed border-zinc-600 flex items-center justify-center">
-                                                <div className="w-2 h-2 rounded-full bg-purple-500 animate-pulse" />
-                                            </div>
-                                            <p className="text-zinc-600 text-xs">Initializing...</p>
-                                        </div>
+            {/* Drag handle */}
+            <div
+                onMouseDown={onMouseDown}
+                className="h-2 bg-zinc-700 hover:bg-purple-500 active:bg-purple-500 cursor-row-resize flex items-center justify-center transition-colors shrink-0 select-none"
+            >
+                <div className="w-10 h-1 rounded-full bg-zinc-500" />
+            </div>
+
+            {/* Bottom: Waterfall + Piano */}
+            <div className="flex-1 flex flex-col overflow-hidden min-h-0">
+                {/* Waterfall canvas */}
+                <div className="flex-1 relative bg-black/50 min-h-0">
+                    <div
+                        ref={waterfallContainerRef}
+                        className="relative w-full h-full"
+                    >
+                        {!rendererReady && (
+                            <div className="absolute inset-0 flex items-center justify-center">
+                                <div className="text-center space-y-2 opacity-30">
+                                    <div className="w-10 h-10 mx-auto rounded-full border-2 border-dashed border-zinc-600 flex items-center justify-center">
+                                        <div className="w-2 h-2 rounded-full bg-purple-500 animate-pulse" />
                                     </div>
-                                )}
+                                    <p className="text-zinc-600 text-xs">Initializing...</p>
+                                </div>
                             </div>
-                        </div>
-
-                        {/* Piano Keyboard */}
-                        <PianoKeyboard />
+                        )}
                     </div>
-                </ResizablePanel>
-            </ResizablePanelGroup>
+                </div>
+
+                {/* Piano Keyboard */}
+                <PianoKeyboard />
+            </div>
         </div>
     )
 }
