@@ -40,6 +40,8 @@ export default function AdminEditor() {
     const [saving, setSaving] = useState(false)
     const [parsedMidi, setParsedMidi] = useState<ParsedMidi | null>(null)
     const [title, setTitle] = useState('')
+    const [isRecording, setIsRecording] = useState(false)
+    const [nextMeasure, setNextMeasure] = useState(2) // next measure to map (1 is always at t=0)
 
     // ─── Store ────────────────────────────────────────────────────
     const anchors = useAppStore((s) => s.anchors)
@@ -235,19 +237,40 @@ export default function AdminEditor() {
         }
     }
 
-    // ─── Spacebar shortcut ────────────────────────────────────────
+    // ─── Keyboard shortcuts ────────────────────────────────────────
     useEffect(() => {
         const onKeyDown = (e: KeyboardEvent) => {
-            if (e.code !== 'Space') return
             // Don't trigger when typing in inputs
             const tag = (e.target as HTMLElement)?.tagName
             if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return
-            e.preventDefault()
-            handlePlayPause()
+
+            if (e.code === 'Space') {
+                e.preventDefault()
+                handlePlayPause()
+            }
+
+            // A key — record anchor at current time
+            if (e.code === 'KeyA' && isRecording && isPlaying) {
+                e.preventDefault()
+                const pm = getPlaybackManager()
+                const time = pm.getTime()
+                const measure = nextMeasure
+
+                // Add or update anchor for this measure
+                const existing = anchors.find((a) => a.measure === measure)
+                if (existing) {
+                    setAnchors(anchors.map((a) => a.measure === measure ? { ...a, time } : a))
+                } else {
+                    const newAnchors = [...anchors, { measure, time }].sort((a, b) => a.measure - b.measure)
+                    setAnchors(newAnchors)
+                }
+                setNextMeasure(measure + 1)
+                console.log(`[Record] Mapped measure ${measure} → ${time.toFixed(2)}s`)
+            }
         }
         window.addEventListener('keydown', onKeyDown)
         return () => window.removeEventListener('keydown', onKeyDown)
-    }, [isPlaying])
+    }, [isPlaying, isRecording, nextMeasure, anchors, setAnchors])
 
     const handleSeek = useCallback((time: number) => {
         const pm = getPlaybackManager()
@@ -261,19 +284,14 @@ export default function AdminEditor() {
             return
         }
         try {
-            // Fetch audio as base64
-            const audioRes = await fetch(config.audio_url)
-            const audioBlob = await audioRes.blob()
-            const base64 = await blobToBase64(audioBlob)
-
-            // Fetch XML content
+            // Fetch XML content client-side (small)
             const xmlRes = await fetch(config.xml_url)
             const xmlContent = await xmlRes.text()
 
+            // Send audio URL to server action — it downloads audio server-side
             const { predictAnchors } = await import('@/app/actions/ai')
             const result = await predictAnchors(
-                base64,
-                audioBlob.type || 'audio/wav',
+                config.audio_url,
                 xmlContent,
                 100 // totalMeasures — will be refined
             )
@@ -294,6 +312,16 @@ export default function AdminEditor() {
         } catch (err) {
             console.error('[AI] Teaching failed:', err)
         }
+    }
+
+    // ─── Record Mode Toggle ──────────────────────────────────────
+    const toggleRecordMode = () => {
+        if (!isRecording) {
+            // Find the next unmapped measure
+            const maxMeasure = anchors.length > 0 ? Math.max(...anchors.map((a) => a.measure)) : 1
+            setNextMeasure(maxMeasure + 1)
+        }
+        setIsRecording(!isRecording)
     }
 
     if (loading) {
@@ -392,6 +420,15 @@ export default function AdminEditor() {
                             {isPlaying ? '⏸ Pause' : '▶ Play'}
                         </Button>
 
+                        {/* Record Mode */}
+                        <Button
+                            size="sm"
+                            onClick={toggleRecordMode}
+                            className={`text-white ${isRecording ? 'bg-red-600 hover:bg-red-700 animate-pulse' : 'bg-zinc-700 hover:bg-zinc-600'}`}
+                        >
+                            ⏺ {isRecording ? `Rec (M${nextMeasure})` : 'Record'}
+                        </Button>
+
                         {/* Score Controls */}
                         <ScoreControls
                             revealMode={revealMode}
@@ -452,19 +489,4 @@ export default function AdminEditor() {
             </div>
         </div>
     )
-}
-
-// Helper: Blob → base64 string
-function blobToBase64(blob: Blob): Promise<string> {
-    return new Promise((resolve, reject) => {
-        const reader = new FileReader()
-        reader.onloadend = () => {
-            const result = reader.result as string
-            // Remove the data URL prefix (e.g., "data:audio/wav;base64,")
-            const base64 = result.split(',')[1] || result
-            resolve(base64)
-        }
-        reader.onerror = reject
-        reader.readAsDataURL(blob)
-    })
 }

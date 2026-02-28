@@ -3,6 +3,7 @@
 /**
  * AI Server Action — wraps Gemini anchor prediction behind a server-only boundary.
  * This hides the API key from the client bundle.
+ * Audio is fetched server-side by URL to avoid the server action body size limit.
  */
 
 import { GoogleGenAI, Type } from '@google/genai'
@@ -21,8 +22,7 @@ const anchorArraySchema = {
 }
 
 export async function predictAnchors(
-    audioBase64: string,
-    audioMimeType: string,
+    audioUrl: string,
     xmlContent: string,
     totalMeasures: number
 ): Promise<{ anchors: Array<{ measure: number; time: number }> }> {
@@ -30,6 +30,12 @@ export async function predictAnchors(
     if (!apiKey) throw new Error('GEMINI_API_KEY is not set')
 
     const ai = new GoogleGenAI({ apiKey })
+
+    // Fetch audio server-side and convert to base64
+    const audioRes = await fetch(audioUrl)
+    const audioBuffer = await audioRes.arrayBuffer()
+    const audioBase64 = Buffer.from(audioBuffer).toString('base64')
+    const contentType = audioRes.headers.get('content-type') || 'audio/wav'
 
     // Dynamic few-shot: get past corrections for learning
     let fewShotText = ''
@@ -70,7 +76,7 @@ ${xmlContent.substring(0, 5000)}${xmlContent.length > 5000 ? '\n... (truncated)'
                 parts: [
                     {
                         inlineData: {
-                            mimeType: audioMimeType,
+                            mimeType: contentType,
                             data: audioBase64,
                         },
                     },
