@@ -305,30 +305,51 @@ export default function AdminEditor() {
     }, [])
 
     // ─── AI Predict ───────────────────────────────────────────────
+    const [aiStatus, setAiStatus] = useState<string | null>(null)
+
     const handleAIPredict = async () => {
         if (!config?.audio_url || !config?.xml_url) {
             alert('Upload both audio and XML files before running AI prediction.')
             return
         }
         try {
-            // Fetch XML content client-side (small)
+            setAiStatus('Downloading XML...')
             const xmlRes = await fetch(config.xml_url)
             const xmlContent = await xmlRes.text()
 
-            // Send audio URL to server action — it downloads audio server-side
+            setAiStatus('AI is analyzing audio — this may take a minute...')
             const { predictAnchors } = await import('@/app/actions/ai')
             const result = await predictAnchors(
                 config.audio_url,
                 xmlContent,
-                100 // totalMeasures — will be refined
+                100
             )
 
             if (result.anchors.length > 0) {
-                setAnchors(result.anchors)
-                console.log('[AI] Prediction complete:', result.anchors.length, 'anchors')
+                // Sort by measure number
+                const sorted = [...result.anchors].sort((a, b) => a.measure - b.measure)
+
+                // Progressive reveal: add anchors one at a time with delay
+                setAnchors([]) // Clear existing
+                for (let i = 0; i < sorted.length; i++) {
+                    const batch = sorted.slice(0, i + 1)
+                    setAnchors(batch)
+                    setAiStatus(`Mapping measure ${sorted[i].measure} → ${sorted[i].time.toFixed(2)}s  (${i + 1}/${sorted.length})`)
+                    // Small delay so the user can see each anchor appear on the waveform
+                    await new Promise((r) => setTimeout(r, 120))
+                }
+
+                console.log('[AI] Prediction complete:', sorted.length, 'anchors')
+                setAiStatus(`Done! ${sorted.length} anchors mapped.`)
+                setTimeout(() => setAiStatus(null), 3000)
+            } else {
+                setAiStatus('AI returned no anchors — try again or map manually.')
+                setTimeout(() => setAiStatus(null), 4000)
             }
         } catch (err) {
             console.error('[AI] Prediction failed:', err)
+            setAiStatus(`Error: ${err instanceof Error ? err.message : 'Prediction failed'}`)
+            setTimeout(() => setAiStatus(null), 5000)
         }
     }
 
@@ -512,7 +533,14 @@ export default function AdminEditor() {
                     />
                 </div>
 
-                {/* Bottom: Waveform Timeline */}
+                {/* Bottom: AI Status + Waveform Timeline */}
+                {aiStatus && (
+                    <div className="px-4 py-1.5 bg-purple-900/30 border-t border-purple-800/50 shrink-0">
+                        <p className="text-xs text-purple-300 font-mono animate-pulse">
+                            🤖 {aiStatus}
+                        </p>
+                    </div>
+                )}
                 <div className="px-4 py-2 bg-zinc-900 border-t border-zinc-800 shrink-0">
                     <WaveformTimeline
                         audioUrl={config?.audio_url || null}
