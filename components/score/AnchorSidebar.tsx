@@ -21,6 +21,7 @@ interface AnchorSidebarProps {
     onRegenerateBeats?: () => void
     onTap?: () => void
     onClearAll?: () => void
+    onAutoMap?: () => void
 }
 
 export const AnchorSidebar: React.FC<AnchorSidebarProps> = ({
@@ -39,6 +40,7 @@ export const AnchorSidebar: React.FC<AnchorSidebarProps> = ({
     onRegenerateBeats,
     onTap,
     onClearAll,
+    onAutoMap,
 }) => {
     const bg = darkMode ? 'bg-zinc-900 text-white' : 'bg-white text-zinc-900'
     const border = darkMode ? 'border-zinc-700' : 'border-zinc-200'
@@ -173,6 +175,11 @@ export const AnchorSidebar: React.FC<AnchorSidebarProps> = ({
                     <Button size="sm" onClick={onTap} className="bg-purple-600 hover:bg-purple-700 text-white text-xs h-8 shadow-lg shadow-purple-500/20">
                         TAP (A)
                     </Button>
+                    {onAutoMap && (
+                        <Button size="sm" onClick={onAutoMap} className="col-span-2 bg-indigo-600 hover:bg-indigo-700 text-white shadow-[0_0_10px_rgba(79,70,229,0.3)] text-xs h-8">
+                            ✨ Auto-Map (v2)
+                        </Button>
+                    )}
                 </div>
             </div>
         </div>

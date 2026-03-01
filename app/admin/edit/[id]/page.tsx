@@ -14,6 +14,7 @@ import { getPlaybackManager } from '@/lib/engine/PlaybackManager'
 import { parseMidiFile } from '@/lib/midi/parser'
 import type { SongConfig, ParsedMidi, BeatAnchor } from '@/lib/types'
 import { fetchConfigById, updateConfigAction } from '@/app/actions/config'
+import { autoMapMidiToScore } from '@/lib/engine/AutoMapper'
 
 export default function AdminEditor() {
     const params = useParams()
@@ -27,6 +28,8 @@ export default function AdminEditor() {
     const [title, setTitle] = useState('')
     const [isRecording, setIsRecording] = useState(false)
     const [nextMeasure, setNextMeasure] = useState(2)
+    const [totalMeasures, setTotalMeasures] = useState(0)
+    const [noteCounts, setNoteCounts] = useState<Map<number, number>>(new Map())
 
     const anchors = useAppStore((s) => s.anchors)
     const beatAnchors = useAppStore((s) => s.beatAnchors)
@@ -255,6 +258,31 @@ export default function AdminEditor() {
         }
     }, [setAnchors, setBeatAnchors])
 
+    const handleScoreLoaded = useCallback((total: number, counts: Map<number, number>) => {
+        setTotalMeasures(total)
+        setNoteCounts(counts)
+    }, [])
+
+    const handleAutoMap = useCallback(() => {
+        if (!parsedMidi) {
+            alert('Please load a MIDI file first.')
+            return
+        }
+        if (totalMeasures === 0 || noteCounts.size === 0) {
+            alert('Please wait for the MusicXML score to finish processing.')
+            return
+        }
+        if (confirm('Auto-map using MIDI analysis? This will overwrite existing anchors.')) {
+            const newAnchors = autoMapMidiToScore(parsedMidi.notes, noteCounts, totalMeasures)
+            if (newAnchors.length > 0) {
+                setAnchors(newAnchors)
+                setBeatAnchors([]) // Clear beats since measure boundaries moved
+            } else {
+                alert('Could not generate anchors from MIDI.')
+            }
+        }
+    }, [parsedMidi, noteCounts, totalMeasures, setAnchors, setBeatAnchors])
+
     useEffect(() => {
         const onKeyDown = (e: KeyboardEvent) => {
             const tag = (e.target as HTMLElement)?.tagName
@@ -301,6 +329,7 @@ export default function AdminEditor() {
                 onRegenerateBeats={handleRegenerateBeats}
                 onTap={handleTap}
                 onClearAll={handleClearAll}
+                onAutoMap={handleAutoMap}
             />
 
             <div className="flex-1 flex flex-col overflow-hidden">
@@ -366,6 +395,7 @@ export default function AdminEditor() {
                         isAdmin={true}
                         onUpdateAnchor={handleSetAnchor}
                         onUpdateBeatAnchor={handleSetBeatAnchor}
+                        onScoreLoaded={handleScoreLoaded}
                     />
                 </div>
 

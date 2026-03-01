@@ -26,6 +26,7 @@ interface ScrollViewProps {
     onMeasureChange?: (measure: number) => void
     onUpdateAnchor?: (measure: number, time: number) => void
     onUpdateBeatAnchor?: (measure: number, beat: number, time: number) => void
+    onScoreLoaded?: (totalMeasures: number, noteCounts: Map<number, number>) => void
 }
 
 type NoteData = {
@@ -40,7 +41,7 @@ const ScrollViewComponent: React.FC<ScrollViewProps> = ({
     xmlUrl, anchors, beatAnchors = [], isPlaying, isAdmin = false, darkMode = false,
     revealMode = 'OFF', highlightNote = true, glowEffect = true, popEffect = false, jumpEffect = true,
     isLocked = true, cursorPosition = 0.2, curtainLookahead = 0.25, showCursor = true, duration = 100,
-    onMeasureChange, onUpdateAnchor, onUpdateBeatAnchor
+    onMeasureChange, onUpdateAnchor, onUpdateBeatAnchor, onScoreLoaded
 }) => {
     const containerRef = useRef<HTMLDivElement>(null)
     const osmdContainerRef = useRef<HTMLDivElement>(null)
@@ -185,11 +186,17 @@ const ScrollViewComponent: React.FC<ScrollViewProps> = ({
                         if (!gve.notes) return
                         // eslint-disable-next-line @typescript-eslint/no-explicit-any
                         gve.notes.forEach((note: any) => {
+                            // isRest is a method on OSMD Note, not a property
+                            if (note.sourceNote && (note.sourceNote.isRestFlag || (typeof note.sourceNote.isRest === 'function' && note.sourceNote.isRest()))) return
+
                             if (note.vfnote && note.vfnote.length > 0) {
                                 const vfId = note.vfnote[0].attrs?.id
                                 if (vfId) {
                                     const element = document.getElementById(vfId) || document.getElementById(`vf-${vfId}`)
                                     if (element) {
+                                        // Ignore anything that is a rest
+                                        if (element.classList.contains('vf-rest') || element.closest('.vf-rest')) return
+
                                         const group = element.closest('.vf-stavenote') as HTMLElement || element as HTMLElement
                                         group.querySelectorAll('path, rect').forEach(p => {
                                             const el = p as HTMLElement
@@ -205,7 +212,8 @@ const ScrollViewComponent: React.FC<ScrollViewProps> = ({
                     })
                 })
             })
-            if (measureNotes.length > 0) newNoteMap.set(measureNumber, measureNotes)
+            // Always set the measure even if 0 notes, so we don't accidentally get noteCounts.size === 0 for a fully blank score (though rare)
+            newNoteMap.set(measureNumber, measureNotes)
         })
 
         const measureBounds: { index: number, left: number, right: number }[] = []
@@ -253,7 +261,16 @@ const ScrollViewComponent: React.FC<ScrollViewProps> = ({
         allSymbolsRef.current = newAllSymbols
         lastMeasureIndexRef.current = -1
 
-    }, [osmd])
+        if (onScoreLoaded) {
+            const counts = new Map<number, number>()
+            newNoteMap.forEach((notes, measureIndex) => {
+                counts.set(measureIndex, notes.length)
+            })
+            console.log(`[ScrollView v2.0] Passed Score Data up to Admin: ${measureList.length} measures.`)
+            onScoreLoaded(measureList.length, counts)
+        }
+
+    }, [osmd, onScoreLoaded])
 
     useEffect(() => {
         if (isLoaded) setTimeout(() => calculateNoteMap(), 100)

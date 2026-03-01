@@ -17,6 +17,7 @@ interface SplitScreenLayoutProps {
     isAdmin?: boolean
     onUpdateAnchor?: (measure: number, time: number) => void
     onUpdateBeatAnchor?: (measure: number, beat: number, time: number) => void
+    onScoreLoaded?: (totalMeasures: number, noteCounts: Map<number, number>) => void
     children?: React.ReactNode
 }
 
@@ -27,6 +28,7 @@ export const SplitScreenLayout: React.FC<SplitScreenLayoutProps> = ({
     isAdmin = false,
     onUpdateAnchor,
     onUpdateBeatAnchor,
+    onScoreLoaded,
     children,
 }) => {
     // ─── Store Connections ──────────────────────────────────────────
@@ -185,6 +187,7 @@ export const SplitScreenLayout: React.FC<SplitScreenLayoutProps> = ({
                     onMeasureChange={handleMeasureChange}
                     onUpdateAnchor={isAdmin ? onUpdateAnchor : undefined}
                     onUpdateBeatAnchor={isAdmin ? onUpdateBeatAnchor : undefined}
+                    onScoreLoaded={onScoreLoaded}
                 />
             </div>
 
