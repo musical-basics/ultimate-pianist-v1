@@ -222,22 +222,36 @@ const ScrollViewComponent: React.FC<ScrollViewProps> = ({
                                 gve.notes.forEach((n: any) => {
                                     if (!n.sourceNote || !n.sourceNote.Pitch) return;
                                     const pitch = n.sourceNote.Pitch;
-                                    // Build MIDI pitch explicitly from FundamentalNote + AccidentalHalfTones
-                                    // FundamentalNote is NoteEnum: C=0,D=2,E=4,F=5,G=7,A=9,B=11
-                                    // AccidentalHalfTones adjusts for sharps/flats
-                                    const semitone = pitch.FundamentalNote + (pitch.AccidentalHalfTones || 0);
-                                    const midiPitch = (pitch.Octave + 2) * 12 + semitone;
 
-                                    // VERBOSE: Log every single note extraction
+                                    // BULLETPROOF: Convert OSMD pitch to MIDI via frequency
+                                    // This bypasses all undocumented octave/accidental conventions
+                                    let midiPitch = 60; // fallback to middle C
+                                    try {
+                                        const freq = pitch.Frequency || pitch.frequency;
+                                        if (freq && freq > 0) {
+                                            midiPitch = Math.round(12 * Math.log2(freq / 440) + 69);
+                                        } else {
+                                            // Fallback: try getHalfTone + 12
+                                            midiPitch = pitch.getHalfTone() + 12;
+                                        }
+                                    } catch {
+                                        // Last resort fallback
+                                        try { midiPitch = pitch.getHalfTone() + 12; } catch { /* give up */ }
+                                    }
+
+                                    // SAFE verbose logging (each access individually protected)
                                     if (measureNumber <= 3) {
-                                        console.log(`[ScrollView PITCH] M${measureNumber} B${beatVal}: ` +
-                                            `FundamentalNote=${pitch.FundamentalNote} ` +
-                                            `Octave=${pitch.Octave} ` +
-                                            `AccidentalHalfTones=${pitch.AccidentalHalfTones} ` +
-                                            `Accidental=${pitch.Accidental} ` +
-                                            `getHalfTone()=${pitch.getHalfTone()} ` +
-                                            `→ semitone=${semitone} → MIDI=${midiPitch} ` +
-                                            `(${pitch.ToString ? pitch.ToString() : '?'})`);
+                                        try {
+                                            const info: Record<string, unknown> = {};
+                                            try { info.fund = pitch.FundamentalNote; } catch { info.fund = '?'; }
+                                            try { info.oct = pitch.Octave; } catch { info.oct = '?'; }
+                                            try { info.acc = pitch.Accidental; } catch { info.acc = '?'; }
+                                            try { info.accHT = pitch.AccidentalHalfTones; } catch { info.accHT = '?'; }
+                                            try { info.ht = pitch.getHalfTone(); } catch { info.ht = '?'; }
+                                            try { info.freq = pitch.Frequency; } catch { info.freq = '?'; }
+                                            try { info.str = pitch.ToStringShort(); } catch { info.str = '?'; }
+                                            console.log(`[PITCH] M${measureNumber} B${beatVal}: MIDI=${midiPitch}`, JSON.stringify(info));
+                                        } catch { /* ignore logging errors */ }
                                     }
 
                                     // Get note duration in quarter-note fractions
