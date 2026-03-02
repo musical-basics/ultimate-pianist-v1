@@ -32,6 +32,7 @@ export default function AdminEditor() {
     const [totalMeasures, setTotalMeasures] = useState(0)
     const [noteCounts, setNoteCounts] = useState<Map<number, number>>(new Map())
     const [xmlEvents, setXmlEvents] = useState<XMLEvent[]>([])
+    const xmlEventsRef = useRef<XMLEvent[]>([]) // Persists fermata data across OSMD re-renders
     const [v5State, setV5State] = useState<V5MapperState | null>(null)
 
     const anchors = useAppStore((s) => s.anchors)
@@ -264,9 +265,12 @@ export default function AdminEditor() {
     const handleScoreLoaded = useCallback((total: number, counts: Map<number, number>, events?: XMLEvent[]) => {
         setTotalMeasures(total)
         setNoteCounts(counts)
-        // Only set xmlEvents on first load — don't let V5-triggered re-renders overwrite them
-        if (events && events.length > 0) {
-            setXmlEvents(prev => prev.length === 0 ? events : prev)
+        // Persist xmlEvents in ref on FIRST load — ref survives OSMD re-renders
+        if (events && events.length > 0 && xmlEventsRef.current.length === 0) {
+            xmlEventsRef.current = events
+            setXmlEvents(events)
+            const fermataCount = events.filter(e => e.hasFermata).length
+            console.log(`[EditPage] Locked ${events.length} xmlEvents into ref (${fermataCount} fermatas)`)
         }
     }, [])
 
@@ -357,17 +361,17 @@ export default function AdminEditor() {
     // V5: Echolocation Interactive Mapper
     const handleStartV5 = useCallback(async (chordThresholdFraction: number) => {
         if (!parsedMidi) { alert('Please load a MIDI file first.'); return; }
-        if (totalMeasures === 0 || xmlEvents.length === 0) { alert('Please wait for score to process.'); return; }
+        if (totalMeasures === 0 || xmlEventsRef.current.length === 0) { alert('Please wait for score to process.'); return; }
 
         setIsAiMapping(true);
         try {
             const { initV5, stepV5 } = await import('@/lib/engine/AutoMapperV5');
 
-            let state = initV5(parsedMidi.notes, xmlEvents, 0, chordThresholdFraction);
+            let state = initV5(parsedMidi.notes, xmlEventsRef.current, 0, chordThresholdFraction);
 
             // Auto-run steps until paused or done
             while (state.status === 'running') {
-                state = stepV5(state, parsedMidi.notes, xmlEvents);
+                state = stepV5(state, parsedMidi.notes, xmlEventsRef.current);
             }
 
             setV5State(state);
@@ -388,7 +392,7 @@ export default function AdminEditor() {
         } finally {
             setIsAiMapping(false);
         }
-    }, [parsedMidi, xmlEvents, totalMeasures, config?.audio_url, setAnchors, setBeatAnchors, setIsLevel2Mode]);
+    }, [parsedMidi, totalMeasures, config?.audio_url, setAnchors, setBeatAnchors, setIsLevel2Mode]);
 
     const handleConfirmGhost = useCallback(async () => {
         if (!v5State || v5State.status !== 'paused' || !v5State.ghostAnchor || !parsedMidi) return;
@@ -398,13 +402,13 @@ export default function AdminEditor() {
 
         // Continue stepping after confirm
         while (state.status === 'running') {
-            state = stepV5(state, parsedMidi.notes, xmlEvents);
+            state = stepV5(state, parsedMidi.notes, xmlEventsRef.current);
         }
 
         setV5State(state);
         setAnchors(state.anchors);
         setBeatAnchors(state.beatAnchors);
-    }, [v5State, parsedMidi, xmlEvents, setAnchors, setBeatAnchors]);
+    }, [v5State, parsedMidi, setAnchors, setBeatAnchors]);
 
     const handleProceedMapping = useCallback(async () => {
         // Same as confirm — confirm at current ghost time, then continue
@@ -415,13 +419,13 @@ export default function AdminEditor() {
         if (!v5State || !parsedMidi) return;
 
         const { runV5ToEnd } = await import('@/lib/engine/AutoMapperV5');
-        const finalState = runV5ToEnd(v5State, parsedMidi.notes, xmlEvents);
+        const finalState = runV5ToEnd(v5State, parsedMidi.notes, xmlEventsRef.current);
 
         setV5State(finalState);
         setAnchors(finalState.anchors);
         setBeatAnchors(finalState.beatAnchors);
         setIsLevel2Mode(true);
-    }, [v5State, parsedMidi, xmlEvents, setAnchors, setBeatAnchors, setIsLevel2Mode]);
+    }, [v5State, parsedMidi, setAnchors, setBeatAnchors, setIsLevel2Mode]);
 
     const handleUpdateGhostTime = useCallback((time: number) => {
         if (!v5State || !v5State.ghostAnchor) return;

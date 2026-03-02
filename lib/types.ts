@@ -87,6 +87,8 @@ export interface V5MapperState {
     recentOutcomes: ('match' | 'dead-reckon' | 'stray')[]
     /** Consecutive non-match count — after 3+ triggers fresh scanning mode */
     consecutiveMisses: number
+    /** Whether we just passed a fermata beat and need fresh scanning */
+    afterFermata?: boolean
 }
 
 /** A full song configuration (stored in DB) */

@@ -199,6 +199,69 @@ export function stepV5(
     const searchStart = state.lastAnchorTime - buffer * 0.5 // Allow slight early arrival
     const searchEnd = state.lastAnchorTime + expectedDelta + buffer
 
+    // ─── AFTER-FERMATA FRESH SCAN ───
+    // If the previous beat had a fermata, the performer held it for an unpredictable duration.
+    // Ignore AQNTL window and do a fresh pitch search to re-sync.
+    if (state.afterFermata) {
+        const freshMatch = findFirstPitchMatch(xmlEvent.pitches, sorted, state.midiCursor)
+
+        if (freshMatch) {
+            const chordThreshold = Math.max(0.100, state.aqntl * state.chordThresholdFraction)
+            const chord = extractChord(xmlEvent.pitches, sorted, freshMatch.index, freshMatch.time, chordThreshold)
+
+            const newAnchors = [...state.anchors]
+            const newBeatAnchors = [...state.beatAnchors]
+            const isNewMeasure = state.anchors.length === 0 || state.anchors[state.anchors.length - 1].measure !== xmlEvent.measure
+            if (isNewMeasure) newAnchors.push({ measure: xmlEvent.measure, time: freshMatch.time })
+            if (xmlEvent.beat > 1.01) newBeatAnchors.push({ measure: xmlEvent.measure, beat: xmlEvent.beat, time: freshMatch.time })
+
+            const nextIndex = state.currentEventIndex + 1
+
+            console.log(`[V5] 🎵 Post-fermata fresh match M${xmlEvent.measure} B${xmlEvent.beat} → ${freshMatch.time.toFixed(3)}s | pitches=[${chord.notes.map(n => n.pitch)}]`)
+
+            return {
+                ...state,
+                anchors: newAnchors,
+                beatAnchors: newBeatAnchors,
+                ghostAnchor: null,
+                aqntl: state.aqntl, // Preserve AQNTL — don't let fermata timing corrupt it
+                midiCursor: chord.lastIndex + 1,
+                currentEventIndex: nextIndex,
+                lastAnchorTime: freshMatch.time,
+                lastAnchorGlobalBeat: xmlEvent.globalBeat,
+                afterFermata: false, // Re-synced
+                consecutiveMisses: 0,
+                recentOutcomes: pushOutcome(state.recentOutcomes, 'match'),
+                status: nextIndex >= xmlEvents.length ? 'done' : 'running',
+            }
+        } else {
+            // No match yet — dead-reckon this beat (held note under fermata)
+            const deadReckonTime = state.lastAnchorTime + expectedDelta
+            const nextIndex = state.currentEventIndex + 1
+
+            console.log(`[V5] 🎵 Post-fermata dead-reckon M${xmlEvent.measure} B${xmlEvent.beat} → ${deadReckonTime.toFixed(3)}s (no onset, still seeking)`)
+
+            const newAnchors = [...state.anchors]
+            const newBeatAnchors = [...state.beatAnchors]
+            const isNewMeasure = state.anchors.length === 0 || state.anchors[state.anchors.length - 1].measure !== xmlEvent.measure
+            if (isNewMeasure) newAnchors.push({ measure: xmlEvent.measure, time: deadReckonTime })
+            if (xmlEvent.beat > 1.01) newBeatAnchors.push({ measure: xmlEvent.measure, beat: xmlEvent.beat, time: deadReckonTime })
+
+            return {
+                ...state,
+                anchors: newAnchors,
+                beatAnchors: newBeatAnchors,
+                ghostAnchor: null,
+                currentEventIndex: nextIndex,
+                lastAnchorTime: deadReckonTime,
+                lastAnchorGlobalBeat: xmlEvent.globalBeat,
+                // Keep afterFermata = true until we find a real match
+                recentOutcomes: pushOutcome(state.recentOutcomes, 'dead-reckon'),
+                status: nextIndex >= xmlEvents.length ? 'done' : 'running',
+            }
+        }
+    }
+
     // ─── CONSECUTIVE MISS FRESH SCAN ───
     // If 3+ consecutive non-matches (dead-reckons/strays), switch to fresh scanning.
     // This handles fermatas, ritardandos, and any timing disruption dynamically.
@@ -317,6 +380,7 @@ export function stepV5(
             currentEventIndex: nextIndex,
             lastAnchorTime: anchorTime,
             lastAnchorGlobalBeat: xmlEvent.globalBeat,
+            afterFermata: xmlEvent.hasFermata || false,
             consecutiveMisses: 0, // Reset on successful match
             recentOutcomes: pushOutcome(state.recentOutcomes, 'match'),
             status: nextIndex >= xmlEvents.length ? 'done' : 'running',
