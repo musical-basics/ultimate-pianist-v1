@@ -429,12 +429,47 @@ export function stepV5(
             }
         }
 
-        // Still no match — dead-reckon this beat using AQNTL and skip
-        // This handles held notes, rests, or ornamental passages with no new onset
+        // ─── NO MATCH: FRESH SCAN FIRST, DEAD-RECKON AS FALLBACK ───
+        // Try a fresh pitch search from midiCursor (anywhere ahead).
+        // If found: verified anchor, no cascading errors.
+        // If not found: dead-reckon (held note/rest with no new onset).
+        const freshMatch = findFirstPitchMatch(xmlEvent.pitches, sorted, state.midiCursor)
         const deadReckonTime = state.lastAnchorTime + expectedDelta
 
-        // Check: is the NEXT event close enough to try matching instead?
-        // If so, dead-reckon this beat and move on (don't pause)
+        if (freshMatch) {
+            // Fresh scan found a match! Use it as a verified anchor.
+            const chordThreshold = Math.max(0.100, state.aqntl * state.chordThresholdFraction)
+            const chord = extractChord(xmlEvent.pitches, sorted, freshMatch.index, freshMatch.time, chordThreshold)
+
+            const newAnchors = [...state.anchors]
+            const newBeatAnchors = [...state.beatAnchors]
+            const isNewMeasure = state.anchors.length === 0 || state.anchors[state.anchors.length - 1].measure !== xmlEvent.measure
+            if (isNewMeasure) newAnchors.push({ measure: xmlEvent.measure, time: freshMatch.time })
+            if (xmlEvent.beat > 1.01) newBeatAnchors.push({ measure: xmlEvent.measure, beat: xmlEvent.beat, time: freshMatch.time })
+
+            const nextIndex = state.currentEventIndex + 1
+
+            console.log(`[V5] 🔄 Fresh-scan match M${xmlEvent.measure} B${xmlEvent.beat} → ${freshMatch.time.toFixed(3)}s | pitches=[${chord.notes.map(n => n.pitch)}] (window missed, fresh found)`)
+
+            return {
+                ...state,
+                anchors: newAnchors,
+                beatAnchors: newBeatAnchors,
+                ghostAnchor: null,
+                aqntl: state.aqntl, // Don't update AQNTL from out-of-window timing
+                midiCursor: chord.lastIndex + 1,
+                currentEventIndex: nextIndex,
+                lastAnchorTime: freshMatch.time,
+                lastAnchorGlobalBeat: xmlEvent.globalBeat,
+                afterFermata: xmlEvent.hasFermata || false,
+                consecutiveMisses: 0,
+                recentOutcomes: pushOutcome(state.recentOutcomes, 'match'),
+                status: nextIndex >= xmlEvents.length ? 'done' : 'running',
+            }
+        }
+
+        // No fresh match either — this beat has no new onset (held note, rest, ornament)
+        // Dead-reckon it as fallback
         const nextIndex = state.currentEventIndex + 1
         if (nextIndex < xmlEvents.length) {
             const nextEvent = xmlEvents[nextIndex]
@@ -442,9 +477,8 @@ export function stepV5(
 
             // Only dead-reckon if the gap is small (≤ 2 beats) — otherwise pause for user
             if (nextBeatsElapsed <= 2) {
-                console.log(`[V5] ⏩ Dead-reckon M${xmlEvent.measure} B${xmlEvent.beat} → ${deadReckonTime.toFixed(3)}s (no onset, skipping) [misses=${state.consecutiveMisses + 1}]`)
+                console.log(`[V5] ⏩ Dead-reckon M${xmlEvent.measure} B${xmlEvent.beat} → ${deadReckonTime.toFixed(3)}s (no onset anywhere) [misses=${state.consecutiveMisses + 1}]`)
 
-                // Track outcome and check for runaway
                 const outcomes = pushOutcome(state.recentOutcomes, 'dead-reckon')
                 if (isRunaway(outcomes)) {
                     console.warn(`[V5] 🛑 Runaway detected (${outcomes.filter(o => o !== 'match').length}/10 bad). Pausing.`)
@@ -456,7 +490,6 @@ export function stepV5(
                     }
                 }
 
-                // Place the anchor via dead reckoning
                 const newAnchors = [...state.anchors]
                 const newBeatAnchors = [...state.beatAnchors]
                 const isNewMeasure = state.anchors.length === 0 || state.anchors[state.anchors.length - 1].measure !== xmlEvent.measure
@@ -473,7 +506,6 @@ export function stepV5(
                     currentEventIndex: nextIndex,
                     lastAnchorTime: deadReckonTime,
                     lastAnchorGlobalBeat: xmlEvent.globalBeat,
-                    // Don't update AQNTL — dead reckoning doesn't give us new tempo info
                     status: nextIndex >= xmlEvents.length ? 'done' : 'running',
                 }
             }
