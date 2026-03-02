@@ -108,8 +108,11 @@ export function initV5(
 
     // Find first pitch match in MIDI (no audio offset — V5 works in MIDI time)
     const firstEvent = xmlEvents[0]
-    console.log(`[V5 DEBUG] Seeking first event: M${firstEvent.measure} B${firstEvent.beat} with pitches [${firstEvent.pitches.join(',')}]`)
-    console.log(`[V5 DEBUG] First 10 MIDI notes:`, sorted.slice(0, 10).map(n => n.pitch).join(','))
+    console.log(`[V5 DEBUG] Total XML events: ${xmlEvents.length}`)
+    console.log(`[V5 DEBUG] First 5 XML events:`, xmlEvents.slice(0, 5).map(e => `M${e.measure} B${e.beat} pitches=[${e.pitches.join(',')}]`).join(' | '))
+    console.log(`[V5 DEBUG] First 10 MIDI notes (pitch):`, sorted.slice(0, 10).map(n => n.pitch).join(','))
+    console.log(`[V5 DEBUG] First 10 MIDI notes (time):`, sorted.slice(0, 10).map(n => n.startTimeSec.toFixed(3)).join(','))
+    console.log(`[V5 DEBUG] Seeking first match for: M${firstEvent.measure} B${firstEvent.beat} pitches=[${firstEvent.pitches.join(',')}]`)
 
     const firstMatch = findFirstPitchMatch(firstEvent.pitches, sorted, 0)
 

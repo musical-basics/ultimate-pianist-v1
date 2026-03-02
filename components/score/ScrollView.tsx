@@ -227,6 +227,19 @@ const ScrollViewComponent: React.FC<ScrollViewProps> = ({
                                     // AccidentalHalfTones adjusts for sharps/flats
                                     const semitone = pitch.FundamentalNote + (pitch.AccidentalHalfTones || 0);
                                     const midiPitch = (pitch.Octave + 2) * 12 + semitone;
+
+                                    // VERBOSE: Log every single note extraction
+                                    if (measureNumber <= 3) {
+                                        console.log(`[ScrollView PITCH] M${measureNumber} B${beatVal}: ` +
+                                            `FundamentalNote=${pitch.FundamentalNote} ` +
+                                            `Octave=${pitch.Octave} ` +
+                                            `AccidentalHalfTones=${pitch.AccidentalHalfTones} ` +
+                                            `Accidental=${pitch.Accidental} ` +
+                                            `getHalfTone()=${pitch.getHalfTone()} ` +
+                                            `→ semitone=${semitone} → MIDI=${midiPitch} ` +
+                                            `(${pitch.ToString ? pitch.ToString() : '?'})`);
+                                    }
+
                                     // Get note duration in quarter-note fractions
                                     const durQuarters = n.sourceNote.Length?.RealValue
                                         ? n.sourceNote.Length.RealValue * 4 // RealValue is in whole notes
@@ -249,13 +262,19 @@ const ScrollViewComponent: React.FC<ScrollViewProps> = ({
                     const sortedBeats = Array.from(uniqueFractionalBeats).sort((a, b) => a - b);
                     sortedBeats.forEach(b => {
                         const acc = beatAccumulator.get(b);
+                        const pitchArr = acc ? Array.from(acc.pitches) : [];
                         xmlEventsList.push({
                             measure: measureNumber,
                             beat: b,
                             globalBeat: cumulativeBeats + (b - 1), // beat 1 of measure = cumulativeBeats + 0
-                            pitches: acc ? Array.from(acc.pitches) : [],
+                            pitches: pitchArr,
                             smallestDuration: acc ? acc.smallestDur : 1,
                         });
+
+                        // VERBOSE: Log the final XML event
+                        if (measureNumber <= 3) {
+                            console.log(`[ScrollView EVENT] M${measureNumber} B${b}: pitches=[${pitchArr.join(',')}] globalBeat=${cumulativeBeats + (b - 1)}`);
+                        }
                     });
 
                 } catch { /* ignore */ }
