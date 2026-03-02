@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button'
 import { SplitScreenLayout } from '@/components/layout/SplitScreenLayout'
 import { AnchorSidebar } from '@/components/score/AnchorSidebar'
 import { WaveformTimeline } from '@/components/score/WaveformTimeline'
+import { MidiTimeline } from '@/components/score/MidiTimeline'
 import { ScoreControls } from '@/components/score/ScoreControls'
 import { useAppStore } from '@/lib/store'
 import { getPlaybackManager } from '@/lib/engine/PlaybackManager'
@@ -357,10 +358,9 @@ export default function AdminEditor() {
 
         setIsAiMapping(true);
         try {
-            const { initV5, stepV5, getAudioOffset } = await import('@/lib/engine/AutoMapperV5');
-            const audioOffset = await getAudioOffset(config?.audio_url || null);
+            const { initV5, stepV5 } = await import('@/lib/engine/AutoMapperV5');
 
-            let state = initV5(parsedMidi.notes, xmlEvents, audioOffset, chordThresholdFraction);
+            let state = initV5(parsedMidi.notes, xmlEvents, 0, chordThresholdFraction);
 
             // Auto-run steps until paused or done
             while (state.status === 'running') {
@@ -552,7 +552,19 @@ export default function AdminEditor() {
                     />
                 </div>
 
-                <div className="shrink-0">
+                <div className="shrink-0 flex flex-col gap-0.5">
+                    <MidiTimeline
+                        parsedMidi={parsedMidi}
+                        anchors={anchors}
+                        beatAnchors={beatAnchors}
+                        ghostAnchor={v5State?.ghostAnchor}
+                        isPlaying={isPlaying}
+                        duration={duration}
+                        onSeek={handleSeek}
+                        onAnchorDrag={handleSetAnchor}
+                        onBeatAnchorDrag={handleSetBeatAnchor}
+                        darkMode={darkMode}
+                    />
                     <WaveformTimeline
                         audioUrl={config?.audio_url || null}
                         anchors={anchors}

@@ -82,7 +82,7 @@ function extractChord(
 export function initV5(
     midiNotes: NoteEvent[],
     xmlEvents: XMLEvent[],
-    audioOffset: number,
+    _audioOffset: number = 0, // Kept for API compat but NOT used — V5 maps in MIDI time
     chordThresholdFraction: number = 0.0625 // 64th note default
 ): V5MapperState {
     const state: V5MapperState = {
@@ -106,7 +106,7 @@ export function initV5(
     // Sort MIDI by time
     const sorted = [...midiNotes].sort((a, b) => a.startTimeSec - b.startTimeSec)
 
-    // Apply audio offset shift
+    // Find first pitch match in MIDI (no audio offset — V5 works in MIDI time)
     const firstEvent = xmlEvents[0]
     const firstMatch = findFirstPitchMatch(firstEvent.pitches, sorted, 0)
 
@@ -116,11 +116,8 @@ export function initV5(
         return state
     }
 
-    // Shift = align first matched MIDI note to the audio offset
-    const shift = audioOffset > 0 ? audioOffset - firstMatch.time : 0
-
-    // Record first anchor
-    const firstAnchorTime = Math.max(0, firstMatch.time + shift)
+    // Record first anchor at MIDI-native timestamp (no shift)
+    const firstAnchorTime = firstMatch.time
     const chordThreshold = state.aqntl * chordThresholdFraction
     const chord = extractChord(firstEvent.pitches, sorted, firstMatch.index, firstMatch.time, chordThreshold)
 
@@ -135,7 +132,7 @@ export function initV5(
     state.currentEventIndex = 1 // Move past first event
     state.status = state.currentEventIndex >= xmlEvents.length ? 'done' : 'running'
 
-    console.log(`[V5] Initialised. First anchor at ${firstAnchorTime.toFixed(3)}s (M${firstEvent.measure} B${firstEvent.beat}). AQNTL=${state.aqntl.toFixed(3)}s. Chord threshold fraction=${chordThresholdFraction}`)
+    console.log(`[V5] Initialised (MIDI time). First anchor at ${firstAnchorTime.toFixed(3)}s (M${firstEvent.measure} B${firstEvent.beat}). AQNTL=${state.aqntl.toFixed(3)}s. Chord threshold=${chordThresholdFraction}`)
 
     return state
 }
