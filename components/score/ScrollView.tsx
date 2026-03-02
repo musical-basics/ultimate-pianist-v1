@@ -222,9 +222,11 @@ const ScrollViewComponent: React.FC<ScrollViewProps> = ({
                                 gve.notes.forEach((n: any) => {
                                     if (!n.sourceNote || !n.sourceNote.Pitch) return;
                                     const pitch = n.sourceNote.Pitch;
-                                    // Convert OSMD Pitch to MIDI number: (octave+2)*12 + halfTone
-                                    // OSMD octaves are 1 less than standard MIDI convention
-                                    const midiPitch = (pitch.Octave + 2) * 12 + pitch.getHalfTone();
+                                    // Build MIDI pitch explicitly from FundamentalNote + AccidentalHalfTones
+                                    // FundamentalNote is NoteEnum: C=0,D=2,E=4,F=5,G=7,A=9,B=11
+                                    // AccidentalHalfTones adjusts for sharps/flats
+                                    const semitone = pitch.FundamentalNote + (pitch.AccidentalHalfTones || 0);
+                                    const midiPitch = (pitch.Octave + 2) * 12 + semitone;
                                     // Get note duration in quarter-note fractions
                                     const durQuarters = n.sourceNote.Length?.RealValue
                                         ? n.sourceNote.Length.RealValue * 4 // RealValue is in whole notes
