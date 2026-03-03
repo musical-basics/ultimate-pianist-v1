@@ -217,6 +217,8 @@ export function parseMusicXmlString(xmlText: string): IntermediateScore {
             // Articulations
             const articulations: string[] = []
             const notationsEl = child.querySelector('notations')
+            let tupletStart = false
+            let tupletStop = false
             if (notationsEl) {
                 const articulationsEl = notationsEl.querySelector('articulations')
                 if (articulationsEl) {
@@ -226,6 +228,24 @@ export function parseMusicXmlString(xmlText: string): IntermediateScore {
                     if (articulationsEl.querySelector('strong-accent')) articulations.push('a^')
                 }
                 if (notationsEl.querySelector('fermata')) articulations.push('a@a')
+
+                // Tuplet start/stop markers
+                const tupletEls = notationsEl.querySelectorAll('tuplet')
+                tupletEls.forEach(t => {
+                    if (t.getAttribute('type') === 'start') tupletStart = true
+                    if (t.getAttribute('type') === 'stop') tupletStop = true
+                })
+            }
+
+            // Time modification (tuplets)
+            let tupletActual: number | undefined
+            let tupletNormal: number | undefined
+            const timeMod = child.querySelector('time-modification')
+            if (timeMod) {
+                const actual = timeMod.querySelector('actual-notes')?.textContent
+                const normal = timeMod.querySelector('normal-notes')?.textContent
+                if (actual) tupletActual = parseInt(actual)
+                if (normal) tupletNormal = parseInt(normal)
             }
 
             const vfId = `vf-M${measureNumber}-S${staffNum - 1}-V${voiceNum}-B${roundedBeat}`
@@ -254,6 +274,10 @@ export function parseMusicXmlString(xmlText: string): IntermediateScore {
                     articulations,
                     beat: roundedBeat,
                     vfId,
+                    tupletActual,
+                    tupletNormal,
+                    tupletStart,
+                    tupletStop,
                 })
             }
 

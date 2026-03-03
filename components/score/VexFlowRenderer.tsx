@@ -19,6 +19,7 @@ import {
     Accidental,
     Dot,
     StaveConnector,
+    Tuplet,
     type RenderContext,
     VoiceMode,
 } from 'vexflow'
@@ -174,6 +175,10 @@ const VexFlowRendererComponent: React.FC<VexFlowRendererProps> = ({
             const voiceStaveMap = new Map<Voice, Stave>()
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const measureBeams: any[] = []
+            const measureTuplets: { notes: StaveNote[]; actual: number; normal: number }[] = []
+            let currentTupletNotes: StaveNote[] | null = null
+            let currentTupletActual = 3
+            let currentTupletNormal = 2
             const coordinateExtractors: (() => void)[] = []
 
             for (const staff of measure.staves) {
@@ -205,6 +210,23 @@ const VexFlowRendererComponent: React.FC<VexFlowRendererProps> = ({
 
                         if (!note.isRest && isBeamable(note.duration)) {
                             beamableNotes.push(staveNote)
+                        }
+
+                        // Tuplet tracking
+                        if (note.tupletStart) {
+                            currentTupletNotes = [staveNote]
+                            currentTupletActual = note.tupletActual || 3
+                            currentTupletNormal = note.tupletNormal || 2
+                        } else if (currentTupletNotes) {
+                            currentTupletNotes.push(staveNote)
+                        }
+                        if (note.tupletStop && currentTupletNotes && currentTupletNotes.length > 0) {
+                            measureTuplets.push({
+                                notes: currentTupletNotes,
+                                actual: currentTupletActual,
+                                normal: currentTupletNormal,
+                            })
+                            currentTupletNotes = null
                         }
 
                         // Tie tracking
@@ -303,6 +325,16 @@ const VexFlowRendererComponent: React.FC<VexFlowRendererProps> = ({
                 formatter.format(vfVoices, STAVE_WIDTH - 40)
                 vfVoices.forEach(v => v.draw(context, voiceStaveMap.get(v)!))
                 measureBeams.forEach(b => b.setContext(context).draw())
+
+                // Draw tuplets
+                measureTuplets.forEach(t => {
+                    try {
+                        new Tuplet(t.notes, {
+                            numNotes: t.actual,
+                            notesOccupied: t.normal,
+                        }).setContext(context).draw()
+                    } catch { /* ignore */ }
+                })
             }
 
             // Extract accurate coordinates now that formatting is complete

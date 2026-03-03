@@ -92,4 +92,22 @@ export interface IntermediateNote {
      * `note.setAttribute('id', vfId)`
      */
     vfId: string;
+
+    /**
+     * Tuplet: actual notes in the tuplet group (e.g., 3 for triplets).
+     * Only present for tuplet notes.
+     */
+    tupletActual?: number;
+
+    /**
+     * Tuplet: normal notes the tuplet replaces (e.g., 2 for triplets).
+     * Only present for tuplet notes.
+     */
+    tupletNormal?: number;
+
+    /** True if this note starts a tuplet group */
+    tupletStart?: boolean;
+
+    /** True if this note ends a tuplet group */
+    tupletStop?: boolean;
 }
