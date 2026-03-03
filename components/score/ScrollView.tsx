@@ -228,10 +228,33 @@ const ScrollViewComponent: React.FC<ScrollViewProps> = ({
 
     // ─── Reveal Mode transitions ────────────────────────────────────
     useEffect(() => {
-        // When switching away from reveal modes, hide the curtain
-        if (curtainRef.current && revealMode === 'OFF') {
+        console.log(`[ScrollView REVEAL] Mode changed: ${prevRevealModeRef.current} → ${revealMode}`)
+
+        // When leaving NOTE mode: restore all note opacities
+        if (prevRevealModeRef.current === 'NOTE' && revealMode !== 'NOTE') {
+            console.log('[ScrollView REVEAL] Leaving NOTE mode — restoring all notes')
+            noteMap.current.forEach(notes => {
+                notes.forEach(n => {
+                    if (n.element) n.element.style.opacity = '1'
+                })
+            })
+        }
+
+        // When entering NOTE mode: hide all notes initially
+        if (revealMode === 'NOTE') {
+            console.log('[ScrollView REVEAL] Entering NOTE mode — hiding all notes')
+            noteMap.current.forEach(notes => {
+                notes.forEach(n => {
+                    if (n.element) n.element.style.opacity = '0'
+                })
+            })
+        }
+
+        // When leaving CURTAIN mode: hide curtain
+        if (curtainRef.current && revealMode !== 'CURTAIN') {
             curtainRef.current.style.display = 'none'
         }
+
         prevRevealModeRef.current = revealMode
     }, [revealMode])
 
@@ -305,13 +328,11 @@ const ScrollViewComponent: React.FC<ScrollViewProps> = ({
                 }
             }
 
-            // ─── Reveal modes (NOTE + CURTAIN use curtain overlay) ──
+            // ─── CURTAIN reveal: overlay behind cursor ──────────────
             if (curtainRef.current) {
-                if (revealMode === 'NOTE' || revealMode === 'CURTAIN') {
+                if (revealMode === 'CURTAIN') {
                     curtainRef.current.style.display = 'block'
-                    // NOTE mode: curtain at cursor position (no offset)
-                    // CURTAIN mode: curtain with configurable lookahead
-                    const offset = revealMode === 'CURTAIN' ? (curtainLookahead * 600) : 0
+                    const offset = curtainLookahead * 600
                     const curtainStart = cursorX + offset
                     const lastMeasureNum = Math.max(...Array.from(measureXMap.keys()))
                     const lastMeasureX = measureXMap.get(lastMeasureNum) || 0
@@ -323,6 +344,22 @@ const ScrollViewComponent: React.FC<ScrollViewProps> = ({
                 } else {
                     curtainRef.current.style.display = 'none'
                 }
+            }
+
+            // ─── NOTE reveal: individual note opacity ────────────────
+            if (revealMode === 'NOTE') {
+                noteMap.current.forEach((notes) => {
+                    for (const n of notes) {
+                        if (!n.element) continue
+                        try {
+                            const noteX = n.element.getBoundingClientRect().left -
+                                (containerRef.current?.getBoundingClientRect().left || 0) +
+                                (scrollContainerRef.current?.scrollLeft || 0)
+                            n.element.style.opacity = noteX <= cursorX + 5 ? '1' : '0'
+                            n.element.style.transition = 'opacity 0.15s ease-out'
+                        } catch { /* ignore */ }
+                    }
+                })
             }
 
             if (currentMeasureIndex !== lastMeasureIndexRef.current && onMeasureChange) {
