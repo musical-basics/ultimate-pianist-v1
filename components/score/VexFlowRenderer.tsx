@@ -20,6 +20,7 @@ import {
     Dot,
     StaveConnector,
     Tuplet,
+    Fraction,
     type RenderContext,
     VoiceMode,
 } from 'vexflow'
@@ -190,7 +191,6 @@ const VexFlowRendererComponent: React.FC<VexFlowRendererProps> = ({
 
                     const vfNotes: StaveNote[] = []
                     const beamableNotes: StaveNote[] = []
-                    const tupletNoteSet = new Set<StaveNote>()
 
                     for (const note of voice.notes) {
                         const staveNote = createStaveNote(note, staff.staffIndex)
@@ -209,7 +209,7 @@ const VexFlowRendererComponent: React.FC<VexFlowRendererProps> = ({
                         staveNote.setAttribute('id', note.vfId)
                         vfNotes.push(staveNote)
 
-                        // Tuplet tracking (before beaming decision)
+                        // Tuplet tracking
                         if (note.tupletStart) {
                             currentTupletNotes = [staveNote]
                             currentTupletActual = note.tupletActual || 3
@@ -218,12 +218,6 @@ const VexFlowRendererComponent: React.FC<VexFlowRendererProps> = ({
                             currentTupletNotes.push(staveNote)
                         }
                         if (note.tupletStop && currentTupletNotes && currentTupletNotes.length > 0) {
-                            // Mark all notes in this tuplet group
-                            currentTupletNotes.forEach(n => tupletNoteSet.add(n))
-                            // Explicitly beam the tuplet group
-                            if (currentTupletNotes.length >= 2) {
-                                try { measureBeams.push(new Beam(currentTupletNotes)) } catch { /* ignore */ }
-                            }
                             measureTuplets.push({
                                 notes: currentTupletNotes,
                                 actual: currentTupletActual,
@@ -232,8 +226,8 @@ const VexFlowRendererComponent: React.FC<VexFlowRendererProps> = ({
                             currentTupletNotes = null
                         }
 
-                        // Only add to auto-beam pool if NOT part of a tuplet
-                        if (!note.isRest && isBeamable(note.duration) && !tupletNoteSet.has(staveNote) && !currentTupletNotes?.includes(staveNote)) {
+                        // All beamable notes go into auto-beam pool (including tuplets)
+                        if (!note.isRest && isBeamable(note.duration)) {
                             beamableNotes.push(staveNote)
                         }
 
@@ -313,7 +307,11 @@ const VexFlowRendererComponent: React.FC<VexFlowRendererProps> = ({
                     voiceStaveMap.set(vfVoice, stave)
 
                     if (beamableNotes.length >= 2) {
-                        try { measureBeams.push(...Beam.generateBeams(beamableNotes)) } catch { /* ignore */ }
+                        try {
+                            // Use generous beam groups to avoid splitting across beat boundaries
+                            const groups = [new Fraction(currentTimeSigNum, currentTimeSigDen)]
+                            measureBeams.push(...Beam.generateBeams(beamableNotes, { groups }))
+                        } catch { /* ignore */ }
                     }
                 }
             }
@@ -337,10 +335,12 @@ const VexFlowRendererComponent: React.FC<VexFlowRendererProps> = ({
                 // Draw tuplets
                 measureTuplets.forEach(t => {
                     try {
-                        new Tuplet(t.notes, {
+                        const tuplet = new Tuplet(t.notes, {
                             numNotes: t.actual,
                             notesOccupied: t.normal,
-                        }).setContext(context).draw()
+                            bracketed: false, // beam already groups them
+                        })
+                        tuplet.setContext(context).draw()
                     } catch { /* ignore */ }
                 })
             }
