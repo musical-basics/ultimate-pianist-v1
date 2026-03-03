@@ -119,6 +119,8 @@ export function parseMusicXmlString(xmlText: string): IntermediateScore {
         // Group notes by staff and voice
         const staffVoiceNotes = new Map<string, { staffNum: number; voiceNum: number; notes: IntermediateNote[] }>()
         let currentPosition = 0  // in divisions
+        let lastStaffNum = 1
+        let lastVoiceNum = 1
 
         const children = measureEl.children
         for (let ci = 0; ci < children.length; ci++) {
@@ -152,9 +154,18 @@ export function parseMusicXmlString(xmlText: string): IntermediateScore {
                 // We'll set the position AFTER processing this note
             }
 
-            // Staff and voice
-            const staffNum = parseInt(child.querySelector('staff')?.textContent || '1')
-            const voiceNum = parseInt(child.querySelector('voice')?.textContent || '1')
+            // Staff and voice — chord notes often omit <voice>, inherit from previous note
+            const staffEl = child.querySelector('staff')
+            const voiceEl = child.querySelector('voice')
+            const staffNum = staffEl ? parseInt(staffEl.textContent || '1') : (isChord ? lastStaffNum : 1)
+            const voiceNum = voiceEl ? parseInt(voiceEl.textContent || '1') : (isChord ? lastVoiceNum : 1)
+
+            // Update tracking for next chord note
+            if (!isChord) {
+                lastStaffNum = staffNum
+                lastVoiceNum = voiceNum
+            }
+
             const svKey = `${staffNum}-${voiceNum}`
 
             // Beat calculation: currentPosition in divisions → beat number (1-based)
