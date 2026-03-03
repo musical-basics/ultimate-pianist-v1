@@ -190,6 +190,7 @@ const VexFlowRendererComponent: React.FC<VexFlowRendererProps> = ({
 
                     const vfNotes: StaveNote[] = []
                     const beamableNotes: StaveNote[] = []
+                    const tupletNoteSet = new Set<StaveNote>()
 
                     for (const note of voice.notes) {
                         const staveNote = createStaveNote(note, staff.staffIndex)
@@ -208,11 +209,7 @@ const VexFlowRendererComponent: React.FC<VexFlowRendererProps> = ({
                         staveNote.setAttribute('id', note.vfId)
                         vfNotes.push(staveNote)
 
-                        if (!note.isRest && isBeamable(note.duration)) {
-                            beamableNotes.push(staveNote)
-                        }
-
-                        // Tuplet tracking
+                        // Tuplet tracking (before beaming decision)
                         if (note.tupletStart) {
                             currentTupletNotes = [staveNote]
                             currentTupletActual = note.tupletActual || 3
@@ -221,12 +218,23 @@ const VexFlowRendererComponent: React.FC<VexFlowRendererProps> = ({
                             currentTupletNotes.push(staveNote)
                         }
                         if (note.tupletStop && currentTupletNotes && currentTupletNotes.length > 0) {
+                            // Mark all notes in this tuplet group
+                            currentTupletNotes.forEach(n => tupletNoteSet.add(n))
+                            // Explicitly beam the tuplet group
+                            if (currentTupletNotes.length >= 2) {
+                                try { measureBeams.push(new Beam(currentTupletNotes)) } catch { /* ignore */ }
+                            }
                             measureTuplets.push({
                                 notes: currentTupletNotes,
                                 actual: currentTupletActual,
                                 normal: currentTupletNormal,
                             })
                             currentTupletNotes = null
+                        }
+
+                        // Only add to auto-beam pool if NOT part of a tuplet
+                        if (!note.isRest && isBeamable(note.duration) && !tupletNoteSet.has(staveNote) && !currentTupletNotes?.includes(staveNote)) {
+                            beamableNotes.push(staveNote)
                         }
 
                         // Tie tracking
