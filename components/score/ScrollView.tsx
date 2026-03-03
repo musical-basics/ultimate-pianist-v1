@@ -226,29 +226,14 @@ const ScrollViewComponent: React.FC<ScrollViewProps> = ({
         element.style.fill = color; element.style.stroke = color
     }
 
-    // ─── Measure Visibility (unchanged) ────────────────────────────
-    const updateMeasureVisibility = useCallback((currentMeasure: number) => {
-        if (revealMode !== 'NOTE' || !measureContentMap.current) return
-        measureContentMap.current.forEach((elements, measureNum) => {
-            if (measureNum < currentMeasure) elements.forEach(el => el.style.opacity = '1')
-            else if (measureNum > currentMeasure) elements.forEach(el => el.style.opacity = '0')
-        })
-    }, [revealMode])
-
+    // ─── Reveal Mode transitions ────────────────────────────────────
     useEffect(() => {
-        if (prevRevealModeRef.current === 'NOTE' && revealMode !== 'NOTE') {
-            measureContentMap.current.forEach(elements => elements.forEach(el => el.style.opacity = '1'))
-        }
-        if (revealMode === 'NOTE') {
-            const pm = getPlaybackManager()
-            const { measure } = findCurrentPosition(pm.getTime())
-            updateMeasureVisibility(measure)
-        }
-        if (revealMode === 'CURTAIN') {
-            measureContentMap.current.forEach(elements => elements.forEach(el => el.style.opacity = '1'))
+        // When switching away from reveal modes, hide the curtain
+        if (curtainRef.current && revealMode === 'OFF') {
+            curtainRef.current.style.display = 'none'
         }
         prevRevealModeRef.current = revealMode
-    }, [revealMode, updateMeasureVisibility, findCurrentPosition])
+    }, [revealMode])
 
     // ─── Dark Mode coloring ────────────────────────────────────────
     useEffect(() => {
@@ -320,32 +305,23 @@ const ScrollViewComponent: React.FC<ScrollViewProps> = ({
                 }
             }
 
+            // ─── Reveal modes (NOTE + CURTAIN use curtain overlay) ──
             if (curtainRef.current) {
-                if (revealMode === 'CURTAIN') {
+                if (revealMode === 'NOTE' || revealMode === 'CURTAIN') {
                     curtainRef.current.style.display = 'block'
-                    const offset = curtainLookahead * 600
+                    // NOTE mode: curtain at cursor position (no offset)
+                    // CURTAIN mode: curtain with configurable lookahead
+                    const offset = revealMode === 'CURTAIN' ? (curtainLookahead * 600) : 0
                     const curtainStart = cursorX + offset
-                    // Use measureXMap for total width
                     const lastMeasureNum = Math.max(...Array.from(measureXMap.keys()))
                     const lastMeasureX = measureXMap.get(lastMeasureNum) || 0
-                    const totalWidth = lastMeasureX + 300  // approximate end
+                    const totalWidth = lastMeasureX + 300
                     curtainRef.current.style.left = `${curtainStart}px`
                     curtainRef.current.style.width = `${Math.max(0, totalWidth - curtainStart + 800)}px`
                     curtainRef.current.style.height = `${Math.max(containerRef.current?.scrollHeight || 0, containerRef.current?.clientHeight || 0)}px`
+                    curtainRef.current.style.backgroundColor = darkMode ? '#18181b' : '#ffffff'
                 } else {
                     curtainRef.current.style.display = 'none'
-                }
-            }
-
-            if (revealMode === 'NOTE') {
-                if (currentMeasureIndex !== lastMeasureIndexRef.current || lastMeasureIndexRef.current === -1) updateMeasureVisibility(measure)
-                const currentElements = measureContentMap.current.get(measure)
-                if (currentElements && containerRef.current) {
-                    const containerRect = containerRef.current.getBoundingClientRect()
-                    currentElements.forEach(el => {
-                        const elLeft = el.getBoundingClientRect().left - containerRect.left
-                        el.style.opacity = elLeft > cursorX + 2 ? '0' : '1'
-                    })
                 }
             }
 
@@ -385,7 +361,7 @@ const ScrollViewComponent: React.FC<ScrollViewProps> = ({
             }
 
         } catch { /* ignore */ }
-    }, [findCurrentPosition, isLoaded, measureXMap, revealMode, updateMeasureVisibility, popEffect, jumpEffect, glowEffect, darkMode, highlightNote, cursorPosition, isLocked, curtainLookahead, showCursor, isAdmin, onMeasureChange])
+    }, [findCurrentPosition, isLoaded, measureXMap, revealMode, popEffect, jumpEffect, glowEffect, darkMode, highlightNote, cursorPosition, isLocked, curtainLookahead, showCursor, isAdmin, onMeasureChange])
 
     // ─── Animation Loop (unchanged) ────────────────────────────────
     useEffect(() => {
