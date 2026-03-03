@@ -17,6 +17,8 @@
             "score-repomix-output.xml",
             "synth-repomix-output.xml",
             "repomix-output.xml",
+            "logic.html",
+            "tsconfig.tsbuildinfo",
             ".env.local",
             "migrations/**"
         ]
