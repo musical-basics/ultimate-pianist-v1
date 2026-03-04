@@ -385,77 +385,26 @@ const VexFlowRendererComponent: React.FC<VexFlowRendererProps> = ({
                 // Format all voices together for cross-stave X alignment
                 formatter.format(vfVoices, STAVE_WIDTH - 40)
 
-                // Post-format: manually reposition notes in tuplet measures for proportional spacing
-                if (measureTuplets.length > 0) {
-                    // Collect all tuplet note IDs for quick lookup
-                    const tupletNoteSet = new Set<StaveNote>()
-                    measureTuplets.forEach(t => t.notes.forEach(n => tupletNoteSet.add(n)))
-
-                    // For each voice, redistribute X based on tick ratios
-                    vfVoices.forEach(v => {
-                        const tickables = v.getTickables() as StaveNote[]
-                        if (tickables.length < 2) return
-
-                        // Get the available X range from formatter
-                        const firstX = tickables[0].getAbsoluteX()
-                        const lastX = tickables[tickables.length - 1].getAbsoluteX()
-                        const totalWidth = lastX - firstX
-                        if (totalWidth <= 0) return
-
-                        // Calculate total ticks for this voice
-                        let totalTicks = 0
-                        const tickValues: number[] = []
-                        for (const t of tickables) {
-                            try {
-                                const ticks = (t as any).getTicks?.()?.value?.() ?? 2048
-                                tickValues.push(ticks)
-                                totalTicks += ticks
-                            } catch {
-                                tickValues.push(2048)
-                                totalTicks += 2048
-                            }
-                        }
-
-                        // Redistribute positions proportionally
-                        let accumulatedTicks = 0
-                        for (let i = 0; i < tickables.length; i++) {
-                            const newX = firstX + (accumulatedTicks / totalTicks) * totalWidth
-                            try {
-                                (tickables[i] as any).setXShift(newX - tickables[i].getAbsoluteX())
-                            } catch { /* ignore */ }
-                            accumulatedTicks += tickValues[i]
-                        }
-                        console.log(`[TUPLET-SPACE] M${measureNumber} repositioned ${tickables.length} notes proportionally`)
-                    })
-                }
-
                 // Post-format: reposition articulations based on resolved stem direction
-                // Single voice: notehead side (stem up → BELOW, stem down → ABOVE)
-                // Multi-voice: stem side (stem up → ABOVE, stem down → BELOW)
-                //   This prevents articulations landing between two voices' noteheads
                 vfVoices.forEach(v => {
                     const isMulti = multiVoiceVoices.has(v)
                     const tickables = v.getTickables()
                     for (const t of tickables) {
                         const sn = t as StaveNote
                         try {
-                            const stemDir = sn.getStemDirection() // 1 = up, -1 = down
+                            const stemDir = sn.getStemDirection()
                             const mods = sn.getModifiers()
                             for (const m of mods) {
                                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
                                 const mod = m as any
                                 if (mod.getCategory?.() === 'articulations' || mod.constructor?.name === 'Articulation') {
-                                    // Position: 3 = ABOVE, 4 = BELOW
                                     let pos: number
                                     if (isMulti) {
-                                        // Multi-voice: stem side
                                         pos = stemDir === 1 ? 3 : 4
                                     } else {
-                                        // Single voice: notehead side
                                         pos = stemDir === 1 ? 4 : 3
                                     }
                                     mod.setPosition(pos)
-                                    // Normalize distance from notehead (positive = down, negative = up)
                                     mod.setYShift(pos === 4 ? 2 : -2)
                                 }
                             }
@@ -463,15 +412,76 @@ const VexFlowRendererComponent: React.FC<VexFlowRendererProps> = ({
                     }
                 })
 
+                // Draw voices and beams
                 vfVoices.forEach(v => v.draw(context, voiceStaveMap.get(v)!))
                 measureBeams.forEach(b => b.setContext(context).draw())
+
+                // Post-draw: reposition notes in tuplet measures for proportional spacing
+                if (measureTuplets.length > 0) {
+                    const tupletNoteSet = new Set<StaveNote>()
+                    measureTuplets.forEach(t => t.notes.forEach(n => tupletNoteSet.add(n)))
+
+                    vfVoices.forEach(v => {
+                        const tickables = v.getTickables() as StaveNote[]
+                        if (tickables.length < 2) return
+
+                        try {
+                            // Get actual rendered X positions (only works after draw)
+                            const positions: { note: StaveNote; x: number; ticks: number }[] = []
+                            for (const t of tickables) {
+                                const absX = t.getAbsoluteX()
+                                const ticks = (t as any).getTicks?.()?.value?.() ?? 2048
+                                positions.push({ note: t, x: absX, ticks })
+                            }
+
+                            const firstX = positions[0].x
+                            const lastX = positions[positions.length - 1].x
+                            const totalWidth = lastX - firstX
+                            if (totalWidth <= 0) return
+
+                            const totalTicks = positions.reduce((sum, p) => sum + p.ticks, 0)
+
+                            // Calculate proportional positions and shifts
+                            let accumulatedTicks = 0
+                            const shifts: { note: StaveNote; shift: number }[] = []
+                            for (const p of positions) {
+                                const targetX = firstX + (accumulatedTicks / totalTicks) * totalWidth
+                                const shift = targetX - p.x
+                                shifts.push({ note: p.note, shift })
+                                accumulatedTicks += p.ticks
+                            }
+
+                            // Apply shifts via SVG transform on each note's group element
+                            if (containerRef.current) {
+                                const svgEl = containerRef.current.querySelector('svg')
+                                if (svgEl) {
+                                    for (const s of shifts) {
+                                        if (Math.abs(s.shift) < 1) continue
+                                        try {
+                                            const noteId = s.note.getAttribute('id')
+                                            if (noteId) {
+                                                // VexFlow assigns 'id' to SVG group elements
+                                                const el = svgEl.querySelector(`[id="${noteId}"]`)
+                                                if (el) {
+                                                    const existingTransform = el.getAttribute('transform') || ''
+                                                    el.setAttribute('transform', `${existingTransform} translate(${s.shift}, 0)`)
+                                                }
+                                            }
+                                        } catch { /* ignore */ }
+                                    }
+                                }
+                            }
+
+                            console.log(`[TUPLET-SPACE] M${measureNumber} repositioned ${positions.length} notes: ${positions.map(p => `${p.ticks.toFixed(0)}@${p.x.toFixed(0)}`).join(', ')}`)
+                        } catch (e) { console.warn(`[TUPLET-SPACE] M${measureNumber} error:`, e) }
+                    })
+                }
 
                 // Draw tuplets, then center the "3" between first and last tuplet note
                 if (containerRef.current) {
                     const svgEl = containerRef.current.querySelector('svg')
                     vfTuplets.forEach((t, tIdx) => {
                         try {
-                            // Get tuplet note X positions BEFORE drawing for centering
                             const tupletData = measureTuplets[tIdx]
                             let centerX = 0
                             if (tupletData && tupletData.notes.length > 0) {
@@ -486,14 +496,9 @@ const VexFlowRendererComponent: React.FC<VexFlowRendererProps> = ({
                                 const allTexts = svgEl.querySelectorAll('text')
                                 for (let i = textCountBefore; i < allTexts.length; i++) {
                                     const textEl = allTexts[i]
-                                    const content = textEl.textContent?.trim() || ''
-                                    const charCodes = Array.from(content).map(c => c.charCodeAt(0))
                                     const currentY = parseFloat(textEl.getAttribute('y') || '0')
-                                    console.log(`[TUPLET-NUM] M${measureNumber} found tuplet text: charCodes=[${charCodes}] y=${currentY} centerX=${centerX}`)
 
-                                    // Scale down and center above tuplet group
                                     textEl.setAttribute('transform', `scale(0.65)`)
-                                    // Position at center of tuplet group (compensate for scale)
                                     if (centerX > 0) {
                                         textEl.setAttribute('x', String(centerX / 0.65))
                                         textEl.setAttribute('text-anchor', 'middle')
@@ -502,7 +507,7 @@ const VexFlowRendererComponent: React.FC<VexFlowRendererProps> = ({
                                         textEl.setAttribute('x', String(origX / 0.65))
                                     }
                                     textEl.setAttribute('y', String((currentY + 14) / 0.65))
-                                    console.log(`[TUPLET-NUM] M${measureNumber} centered at x=${centerX}, applied scale(0.65)`)
+                                    console.log(`[TUPLET-NUM] M${measureNumber} centered at x=${centerX.toFixed(0)}, y adjusted`)
                                 }
                             }
                         } catch { /* ignore */ }
