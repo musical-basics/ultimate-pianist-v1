@@ -220,9 +220,7 @@ const VexFlowRendererComponent: React.FC<VexFlowRendererProps> = ({
 
                         // Tuplet tracking
                         if (note.tupletActual || note.tupletStart || note.tupletStop) {
-                            if (mIdx <= 4) {
-                                console.log(`[TUPLET-TRACK] M${measureNumber} note=${note.keys[0]} tupletStart=${note.tupletStart} tupletStop=${note.tupletStop} tupletActual=${note.tupletActual} tupletNormal=${note.tupletNormal} currentTupletNotes=${currentTupletNotes?.length ?? 'null'}`)
-                            }
+                            console.log(`[TUPLET-TRACK] M${measureNumber} note=${note.keys[0]} tupletStart=${note.tupletStart} tupletStop=${note.tupletStop} tupletActual=${note.tupletActual} tupletNormal=${note.tupletNormal} currentTupletNotes=${currentTupletNotes?.length ?? 'null'}`)
                         }
                         if (note.tupletStart) {
                             currentTupletNotes = [staveNote]
@@ -368,7 +366,7 @@ const VexFlowRendererComponent: React.FC<VexFlowRendererProps> = ({
                                 }
                             } catch (e) { console.warn('[TUPLET-TICK] applyTickMultiplier error:', e) }
                             const ticksAfter = n.getTicks?.()?.value?.() ?? n.getTicks?.() ?? 'N/A'
-                            if (mIdx <= 2) {
+                            if (measureNumber <= 16) {
                                 console.log(`[TUPLET-TICK] M${measureNumber} note ticks: before=${ticksBefore}, after=${ticksAfter}, hasApplyTickMultiplier=${hasApplyTickMultiplier}, hasSetIntrinsicTicks=${hasSetIntrinsicTicks}`)
                             }
                         }
