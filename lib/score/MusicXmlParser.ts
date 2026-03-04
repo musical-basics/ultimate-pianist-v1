@@ -231,6 +231,9 @@ export function parseMusicXmlString(xmlText: string): IntermediateScore {
 
                 // Tuplet start/stop markers
                 const tupletEls = notationsEl.querySelectorAll('tuplet')
+                if (tupletEls.length > 0 && measureNumber <= 16) {
+                    console.log(`[PARSER-TUPLET] M${measureNumber} found ${tupletEls.length} tuplet elements:`, Array.from(tupletEls).map(t => t.getAttribute('type')))
+                }
                 tupletEls.forEach(t => {
                     if (t.getAttribute('type') === 'start') tupletStart = true
                     if (t.getAttribute('type') === 'stop') tupletStop = true
