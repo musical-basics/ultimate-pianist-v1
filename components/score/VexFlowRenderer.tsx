@@ -424,11 +424,12 @@ const VexFlowRendererComponent: React.FC<VexFlowRendererProps> = ({
                 })
 
                 // Format all voices together using the available width after decorations
-                const availableWidth = Math.max(
-                    staves[0]?.getNoteEndX() - maxNoteStartX,
-                    STAVE_WIDTH - 60
-                )
-                formatter.format(vfVoices, availableWidth)
+                // Use actual stave width minus padding to prevent notes spilling past barline
+                const noteEndX = Math.min(...staves.map(s => {
+                    try { return s.getNoteEndX() } catch { return maxNoteStartX + STAVE_WIDTH - 40 }
+                }))
+                const availableWidth = noteEndX - maxNoteStartX - 10 // 10px right margin
+                formatter.format(vfVoices, Math.max(availableWidth, 100))
 
                 // Post-format: reposition articulations based on resolved stem direction
                 vfVoices.forEach(v => {
