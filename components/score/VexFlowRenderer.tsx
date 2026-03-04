@@ -531,7 +531,7 @@ const VexFlowRendererComponent: React.FC<VexFlowRendererProps> = ({
                                         const origX = parseFloat(textEl.getAttribute('x') || '0')
                                         textEl.setAttribute('x', String(origX / 0.65))
                                     }
-                                    textEl.setAttribute('y', String((currentY + 14) / 0.65))
+                                    textEl.setAttribute('y', String((currentY + 20) / 0.65))
                                     console.log(`[TUPLET-NUM] M${measureNumber} centered at x=${centerX.toFixed(0)}, y adjusted`)
                                 }
                             }
