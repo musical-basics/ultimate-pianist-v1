@@ -103,6 +103,7 @@ export interface SongConfig {
     subdivision?: number | null
     is_level2?: boolean | null
     is_published?: boolean
+    music_font?: string | null
     // AI Anchor Mapping (stores Gemini's initial predictions)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     ai_anchors?: any[] | null

@@ -81,6 +81,7 @@ export default function AdminEditor() {
                     if (data.beat_anchors) setBeatAnchors(data.beat_anchors)
                     if (data.is_level2) setIsLevel2Mode(data.is_level2)
                     if (data.subdivision) setSubdivision(data.subdivision)
+                    if (data.music_font) setMusicFont(data.music_font)
                 }
             } catch (err) {
                 console.error('Failed to load config:', err)
@@ -114,6 +115,7 @@ export default function AdminEditor() {
             await updateConfigAction(configId, {
                 title, anchors, beat_anchors: beatAnchors,
                 subdivision, is_level2: isLevel2Mode,
+                music_font: musicFont,
             })
         } catch (err) { console.error('Failed to save:', err) }
         finally { setSaving(false) }
