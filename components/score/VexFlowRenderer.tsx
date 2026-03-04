@@ -284,6 +284,38 @@ const VexFlowRendererComponent: React.FC<VexFlowRendererProps> = ({
                         }
                     }
 
+                    // Heuristic triplet detection: in 3/4 time, 3 beamed eighths
+                    // alongside a half note = triplet (even if MusicXML doesn't mark them)
+                    if (currentTimeSigNum === 3 && currentTimeSigDen === 4) {
+                        // Find groups of exactly 3 consecutive beamed eighths not already in a tuplet
+                        const tupletNoteIds = new Set<StaveNote>()
+                        measureTuplets.forEach(t => t.notes.forEach(n => tupletNoteIds.add(n)))
+
+                        for (let ni = 0; ni <= voice.notes.length - 3; ni++) {
+                            const n0 = voice.notes[ni]
+                            const n1 = voice.notes[ni + 1]
+                            const n2 = voice.notes[ni + 2]
+                            // All 3 must be eighth notes and not rests
+                            const allEighths = n0.duration === '8' && n1.duration === '8' && n2.duration === '8'
+                            const noRests = !n0.isRest && !n1.isRest && !n2.isRest
+                            // Not already tracked as tuplet
+                            const notAlreadyTuplet = !tupletNoteIds.has(vfNotes[ni]) && !tupletNoteIds.has(vfNotes[ni + 1]) && !tupletNoteIds.has(vfNotes[ni + 2])
+                            // None of them have tupletStart/tupletStop flags
+                            const noTupletFlags = !n0.tupletStart && !n0.tupletStop && !n1.tupletStart && !n1.tupletStop && !n2.tupletStart && !n2.tupletStop
+
+                            if (allEighths && noRests && notAlreadyTuplet && noTupletFlags) {
+                                const tripletNotes = [vfNotes[ni], vfNotes[ni + 1], vfNotes[ni + 2]]
+                                measureTuplets.push({
+                                    notes: tripletNotes,
+                                    actual: 3,
+                                    normal: 2,
+                                })
+                                tripletNotes.forEach(n => tupletNoteIds.add(n))
+                                console.log(`[TUPLET-HEURISTIC] M${measureNumber} detected triplet at notes ${ni}-${ni + 2}`)
+                            }
+                        }
+                    }
+
                     // Flush any unclosed tuplet at end of voice
                     // Only flush unclosed tuplets with 2+ notes
                     // Single-note unclosed tuplets are cross-measure starts (e.g. M16 Voice 1)
