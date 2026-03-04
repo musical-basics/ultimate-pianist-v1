@@ -424,8 +424,15 @@ const VexFlowRendererComponent: React.FC<VexFlowRendererProps> = ({
                             // VexFlow renders tuplet numbers as <text> elements
                             const textEls = svgEl.querySelectorAll('text')
                             console.log(`[TUPLET-SVG] M${measureNumber} found ${textEls.length} text elements in SVG`)
+                            // Log sample of text contents to identify tuplet number format
+                            let sampleCount = 0
                             for (const textEl of textEls) {
                                 const content = textEl.textContent?.trim()
+                                if (content && content.length <= 3 && sampleCount < 15) {
+                                    const charCodes = Array.from(content).map(c => c.charCodeAt(0))
+                                    console.log(`[TUPLET-SVG] M${measureNumber} text="${content}" charCodes=[${charCodes}] font-size=${textEl.getAttribute('font-size') || 'N/A'} font-family=${textEl.getAttribute('font-family')?.substring(0, 20) || 'N/A'}`)
+                                    sampleCount++
+                                }
                                 if (content && /^\d+$/.test(content) && parseInt(content) <= 9) {
                                     const currentSize = parseFloat(textEl.getAttribute('font-size') || textEl.style.fontSize || '0')
                                     console.log(`[TUPLET-SVG] M${measureNumber} text="${content}" font-size=${currentSize} font-family=${textEl.getAttribute('font-family') || 'N/A'}`)
