@@ -219,9 +219,7 @@ const VexFlowRendererComponent: React.FC<VexFlowRendererProps> = ({
                         vfNotes.push(staveNote)
 
                         // Tuplet tracking
-                        if (note.tupletActual || note.tupletStart || note.tupletStop) {
-                            console.log(`[TUPLET-TRACK] M${measureNumber} note=${note.keys[0]} tupletStart=${note.tupletStart} tupletStop=${note.tupletStop} tupletActual=${note.tupletActual} tupletNormal=${note.tupletNormal} currentTupletNotes=${currentTupletNotes?.length ?? 'null'}`)
-                        }
+
                         if (note.tupletStart) {
                             currentTupletNotes = [staveNote]
                             currentTupletActual = note.tupletActual || 3
@@ -353,42 +351,14 @@ const VexFlowRendererComponent: React.FC<VexFlowRendererProps> = ({
                 const vfTuplets: any[] = []
                 measureTuplets.forEach(t => {
                     try {
-                        // Manually apply tick ratio so formatter gives correct proportional spacing
-                        // For 3:2 triplet, each note gets 2/3 of its normal ticks
-                        for (const note of t.notes) {
-                            const n = note as any
-                            const ticksBefore = n.getTicks?.()?.value?.() ?? n.getTicks?.() ?? 'N/A'
-                            const hasApplyTickMultiplier = typeof n.applyTickMultiplier === 'function'
-                            const hasSetIntrinsicTicks = typeof n.setIntrinsicTicks === 'function'
-                            try {
-                                if (hasApplyTickMultiplier) {
-                                    n.applyTickMultiplier(t.normal, t.actual)
-                                }
-                            } catch (e) { console.warn('[TUPLET-TICK] applyTickMultiplier error:', e) }
-                            const ticksAfter = n.getTicks?.()?.value?.() ?? n.getTicks?.() ?? 'N/A'
-                            if (measureNumber <= 16) {
-                                console.log(`[TUPLET-TICK] M${measureNumber} note ticks: before=${ticksBefore}, after=${ticksAfter}, hasApplyTickMultiplier=${hasApplyTickMultiplier}, hasSetIntrinsicTicks=${hasSetIntrinsicTicks}`)
-                            }
-                        }
-
                         const tuplet = new Tuplet(t.notes, {
                             numNotes: t.actual,
                             notesOccupied: t.normal,
                             bracketed: false, // beam already groups them visually
-                            yOffset: 14,      // bring "3" closer to the beam
+                            yOffset: 18,      // bring "3" closer to the beam
                         })
                         // Smaller font for the tuplet number
-                        const tp = tuplet as any
-                        const hasSetFont = typeof tp.setFont === 'function'
-                        const hasSetFontSize = typeof tp.setFontSize === 'function'
-                        const hasTextFont = typeof tp.textFont !== 'undefined'
-                        if (mIdx <= 2) {
-                            console.log(`[TUPLET-FONT] M${measureNumber} hasSetFont=${hasSetFont}, hasSetFontSize=${hasSetFontSize}, hasTextFont=${hasTextFont}, font=`, tp.font || tp.textFont || 'N/A')
-                            // Log all methods available on tuplet:
-                            const methods = Object.getOwnPropertyNames(Object.getPrototypeOf(tp)).filter(k => typeof tp[k] === 'function')
-                            console.log(`[TUPLET-METHODS] M${measureNumber}`, methods.join(', '))
-                        }
-                        try { tp.setFont({ size: 10 }) } catch { /* ignore */ }
+                        try { (tuplet as any).setFont({ size: 10 }) } catch { /* ignore */ }
                         vfTuplets.push(tuplet)
                     } catch { /* ignore */ }
                 })
