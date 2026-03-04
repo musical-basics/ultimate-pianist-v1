@@ -71,7 +71,7 @@ const VexFlowRendererComponent: React.FC<VexFlowRendererProps> = ({
         if (!score || !containerRef.current || score.measures.length === 0 || !fontsLoaded) return
         // Set the active font synchronously BEFORE creating any VexFlow objects
         VexFlow.setFonts(musicFont)
-        console.log('[FONT DEBUG] renderScore firing, musicFont =', JSON.stringify(musicFont), 'VexFlow.getFonts():', VexFlow.getFonts())
+        console.log('[FONT DEBUG] renderScore: musicFont =', JSON.stringify(musicFont), 'getFonts():', VexFlow.getFonts())
 
         // Clear previous render
         containerRef.current.innerHTML = ''
@@ -83,6 +83,11 @@ const VexFlowRendererComponent: React.FC<VexFlowRendererProps> = ({
         // Create SVG renderer
         const renderer = new Renderer(containerRef.current, Renderer.Backends.SVG)
         renderer.resize(totalWidth, SYSTEM_HEIGHT)
+        // Check what font-family the SVG actually got
+        const svgEl = containerRef.current.querySelector('svg')
+        if (svgEl) {
+            console.log('[FONT DEBUG] SVG font-family attr:', svgEl.getAttribute('font-family'))
+        }
         rendererRef.current = renderer
 
         const context = renderer.getContext() as RenderContext
