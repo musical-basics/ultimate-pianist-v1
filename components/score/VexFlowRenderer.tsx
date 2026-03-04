@@ -197,6 +197,11 @@ const VexFlowRendererComponent: React.FC<VexFlowRendererProps> = ({
                         ? (voice.voiceIndex === Math.min(...staff.voices.map(v => v.voiceIndex)) ? 1 : -1)
                         : undefined
 
+                    // DEBUG: Log multi-voice detection
+                    if (measureNumber >= 12 && measureNumber <= 15) {
+                        console.log(`[STEM-DEBUG] M${measureNumber} staff${staff.staffIndex} voice${voice.voiceIndex}: isMultiVoice=${isMultiVoice}, voices=[${staff.voices.map(v => v.voiceIndex)}], stemDir=${stemDir}, noteCount=${voice.notes.length}, firstKey=${voice.notes[0]?.keys[0]}`)
+                    }
+
                     const vfNotes: StaveNote[] = []
                     const beamableNotes: StaveNote[] = []
 
