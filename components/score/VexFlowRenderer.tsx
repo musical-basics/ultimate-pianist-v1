@@ -417,64 +417,56 @@ const VexFlowRendererComponent: React.FC<VexFlowRendererProps> = ({
                 measureBeams.forEach(b => b.setContext(context).draw())
 
                 // Post-draw: reposition notes in tuplet measures for proportional spacing
-                if (measureTuplets.length > 0) {
-                    const tupletNoteSet = new Set<StaveNote>()
-                    measureTuplets.forEach(t => t.notes.forEach(n => tupletNoteSet.add(n)))
+                // Uses getAbsoluteX() which requires draw() to have been called
+                if (measureTuplets.length > 0 && containerRef.current) {
+                    const svgEl = containerRef.current.querySelector('svg')
+                    if (svgEl) {
+                        vfVoices.forEach(v => {
+                            const tickables = v.getTickables() as StaveNote[]
+                            if (tickables.length < 2) return
 
-                    vfVoices.forEach(v => {
-                        const tickables = v.getTickables() as StaveNote[]
-                        if (tickables.length < 2) return
+                            try {
+                                // Read actual rendered positions
+                                const xPositions: number[] = []
+                                const tickValues: number[] = []
+                                for (const t of tickables) {
+                                    xPositions.push(t.getAbsoluteX())
+                                    const ticks = (t as any).getTicks?.()?.value?.() ?? 2048
+                                    tickValues.push(ticks)
+                                }
 
-                        try {
-                            // Get actual rendered X positions (only works after draw)
-                            const positions: { note: StaveNote; x: number; ticks: number }[] = []
-                            for (const t of tickables) {
-                                const absX = t.getAbsoluteX()
-                                const ticks = (t as any).getTicks?.()?.value?.() ?? 2048
-                                positions.push({ note: t, x: absX, ticks })
-                            }
+                                const firstX = xPositions[0]
+                                const lastX = xPositions[xPositions.length - 1]
+                                const totalWidth = lastX - firstX
+                                if (totalWidth <= 0) return
 
-                            const firstX = positions[0].x
-                            const lastX = positions[positions.length - 1].x
-                            const totalWidth = lastX - firstX
-                            if (totalWidth <= 0) return
+                                const totalTicks = tickValues.reduce((s, t) => s + t, 0)
 
-                            const totalTicks = positions.reduce((sum, p) => sum + p.ticks, 0)
+                                // Log current vs target positions
+                                console.log(`[TUPLET-SPACE] M${measureNumber} current positions: ${xPositions.map((x, i) => `t=${tickValues[i]}@x=${x.toFixed(0)}`).join(', ')}`)
 
-                            // Calculate proportional positions and shifts
-                            let accumulatedTicks = 0
-                            const shifts: { note: StaveNote; shift: number }[] = []
-                            for (const p of positions) {
-                                const targetX = firstX + (accumulatedTicks / totalTicks) * totalWidth
-                                const shift = targetX - p.x
-                                shifts.push({ note: p.note, shift })
-                                accumulatedTicks += p.ticks
-                            }
+                                // Calculate proportional target positions
+                                let accumulated = 0
+                                for (let i = 0; i < tickables.length; i++) {
+                                    const targetX = firstX + (accumulated / totalTicks) * totalWidth
+                                    const shift = targetX - xPositions[i]
+                                    accumulated += tickValues[i]
 
-                            // Apply shifts via SVG transform on each note's group element
-                            if (containerRef.current) {
-                                const svgEl = containerRef.current.querySelector('svg')
-                                if (svgEl) {
-                                    for (const s of shifts) {
-                                        if (Math.abs(s.shift) < 1) continue
-                                        try {
-                                            const noteId = s.note.getAttribute('id')
-                                            if (noteId) {
-                                                // VexFlow assigns 'id' to SVG group elements
-                                                const el = svgEl.querySelector(`[id="${noteId}"]`)
-                                                if (el) {
-                                                    const existingTransform = el.getAttribute('transform') || ''
-                                                    el.setAttribute('transform', `${existingTransform} translate(${s.shift}, 0)`)
-                                                }
-                                            }
-                                        } catch { /* ignore */ }
+                                    if (Math.abs(shift) < 1) continue
+
+                                    // Find the SVG element for this note and translate it
+                                    const noteEl = (tickables[i] as any).getSVGElement?.() ||
+                                        (tickables[i] as any).getAttribute?.('el') ||
+                                        svgEl.getElementById((tickables[i] as any).getAttribute?.('id') || '')
+                                    if (noteEl) {
+                                        const existing = noteEl.getAttribute('transform') || ''
+                                        noteEl.setAttribute('transform', `${existing} translate(${shift.toFixed(1)}, 0)`)
+                                        console.log(`[TUPLET-SPACE] M${measureNumber} shifted note ${i}: ${shift.toFixed(1)}px`)
                                     }
                                 }
-                            }
-
-                            console.log(`[TUPLET-SPACE] M${measureNumber} repositioned ${positions.length} notes: ${positions.map(p => `${p.ticks.toFixed(0)}@${p.x.toFixed(0)}`).join(', ')}`)
-                        } catch (e) { console.warn(`[TUPLET-SPACE] M${measureNumber} error:`, e) }
-                    })
+                            } catch (e) { console.warn(`[TUPLET-SPACE] M${measureNumber} error:`, e) }
+                        })
+                    }
                 }
 
                 // Draw tuplets, then center the "3" between first and last tuplet note
