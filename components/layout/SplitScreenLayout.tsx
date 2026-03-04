@@ -18,6 +18,7 @@ interface SplitScreenLayoutProps {
     onUpdateAnchor?: (measure: number, time: number) => void
     onUpdateBeatAnchor?: (measure: number, beat: number, time: number) => void
     onScoreLoaded?: (totalMeasures: number, noteCounts: Map<number, number>, xmlEvents?: XMLEvent[]) => void
+    musicFont?: string
     children?: React.ReactNode
 }
 
@@ -26,6 +27,7 @@ export const SplitScreenLayout: React.FC<SplitScreenLayoutProps> = ({
     xmlUrl,
     parsedMidi,
     isAdmin = false,
+    musicFont,
     onUpdateAnchor,
     onUpdateBeatAnchor,
     onScoreLoaded,
@@ -188,6 +190,7 @@ export const SplitScreenLayout: React.FC<SplitScreenLayoutProps> = ({
                     onUpdateAnchor={isAdmin ? onUpdateAnchor : undefined}
                     onUpdateBeatAnchor={isAdmin ? onUpdateBeatAnchor : undefined}
                     onScoreLoaded={onScoreLoaded}
+                    musicFont={musicFont}
                 />
             </div>
 

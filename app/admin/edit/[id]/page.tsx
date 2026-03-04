@@ -34,6 +34,7 @@ export default function AdminEditor() {
     const [xmlEvents, setXmlEvents] = useState<XMLEvent[]>([])
     const xmlEventsRef = useRef<XMLEvent[]>([]) // Persists fermata data across OSMD re-renders
     const [v5State, setV5State] = useState<V5MapperState | null>(null)
+    const [musicFont, setMusicFont] = useState('Bravura')
 
     const anchors = useAppStore((s) => s.anchors)
     const beatAnchors = useAppStore((s) => s.beatAnchors)
@@ -526,6 +527,17 @@ export default function AdminEditor() {
                             ⏺ {isRecording ? `Rec (M${nextMeasure})` : 'Record'}
                         </Button>
 
+                        <select
+                            value={musicFont}
+                            onChange={(e) => setMusicFont(e.target.value)}
+                            className="text-xs px-2 py-1.5 rounded border bg-zinc-800 border-zinc-600 text-zinc-300 cursor-pointer hover:border-zinc-500"
+                        >
+                            <option value="Bravura">♪ Bravura</option>
+                            <option value="Gonville">♪ Gonville</option>
+                            <option value="Petaluma">♪ Petaluma</option>
+                            <option value="Academico">♪ Academico</option>
+                        </select>
+
                         <ScoreControls
                             revealMode={revealMode} darkMode={darkMode} highlightNote={highlightNote}
                             glowEffect={glowEffect} popEffect={popEffect} jumpEffect={jumpEffect}
@@ -553,6 +565,7 @@ export default function AdminEditor() {
                         xmlUrl={config?.xml_url || null}
                         parsedMidi={parsedMidi}
                         isAdmin={true}
+                        musicFont={musicFont}
                         onUpdateAnchor={handleSetAnchor}
                         onUpdateBeatAnchor={handleSetBeatAnchor}
                         onScoreLoaded={handleScoreLoaded}

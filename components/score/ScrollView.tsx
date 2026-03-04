@@ -31,13 +31,14 @@ interface ScrollViewProps {
     onUpdateAnchor?: (measure: number, time: number) => void
     onUpdateBeatAnchor?: (measure: number, beat: number, time: number) => void
     onScoreLoaded?: (totalMeasures: number, noteCounts: Map<number, number>, xmlEvents?: XMLEvent[]) => void
+    musicFont?: string
 }
 
 const ScrollViewComponent: React.FC<ScrollViewProps> = ({
     xmlUrl, anchors, beatAnchors = [], isPlaying, isAdmin = false, darkMode = false,
     revealMode = 'OFF', highlightNote = true, glowEffect = true, popEffect = false, jumpEffect = true,
     isLocked = true, cursorPosition = 0.2, curtainLookahead = 0.25, showCursor = true, duration = 100,
-    onMeasureChange, onUpdateAnchor, onUpdateBeatAnchor, onScoreLoaded
+    onMeasureChange, onUpdateAnchor, onUpdateBeatAnchor, onScoreLoaded, musicFont,
 }) => {
     const containerRef = useRef<HTMLDivElement>(null)
     const cursorRef = useRef<HTMLDivElement>(null)
@@ -58,7 +59,6 @@ const ScrollViewComponent: React.FC<ScrollViewProps> = ({
 
     // ─── Parsing State ─────────────────────────────────────────────
     const [intermediateScore, setIntermediateScore] = useState<IntermediateScore | null>(null)
-    const [musicFont, setMusicFont] = useState('Bravura')
     const [isLoaded, setIsLoaded] = useState(false)
     const [parseError, setParseError] = useState<string | null>(null)
     const xmlEventsRef = useRef<XMLEvent[]>([])
@@ -453,25 +453,6 @@ const ScrollViewComponent: React.FC<ScrollViewProps> = ({
                 {parseError && (
                     <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                         <p className="text-red-500 text-sm">Error: {parseError}</p>
-                    </div>
-                )}
-
-                {/* Music Font Selector (admin only) */}
-                {isAdmin && (
-                    <div className="sticky top-0 z-[100] flex justify-end p-1 pr-3">
-                        <select
-                            value={musicFont}
-                            onChange={(e) => setMusicFont(e.target.value)}
-                            className={`text-xs px-2 py-1 rounded border ${darkMode
-                                    ? 'bg-zinc-800 border-zinc-600 text-zinc-300'
-                                    : 'bg-white border-zinc-300 text-zinc-700'
-                                } cursor-pointer`}
-                        >
-                            <option value="Bravura">Bravura</option>
-                            <option value="Gonville">Gonville</option>
-                            <option value="Petaluma">Petaluma</option>
-                            <option value="Academico">Academico</option>
-                        </select>
                     </div>
                 )}
 
