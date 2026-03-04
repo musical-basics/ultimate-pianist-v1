@@ -8,6 +8,7 @@
 
 import * as React from 'react'
 import { useRef, useEffect, useCallback, useState } from 'react'
+import { loadFonts } from 'vexflow'
 import {
     Renderer,
     Stave,
@@ -50,9 +51,18 @@ const VexFlowRendererComponent: React.FC<VexFlowRendererProps> = ({
     const containerRef = useRef<HTMLDivElement>(null)
     const rendererRef = useRef<Renderer | null>(null)
     const [isRendered, setIsRendered] = useState(false)
+    const [fontsLoaded, setFontsLoaded] = useState(false)
+
+    // Load Bravura music font once (VexFlow v5 requires explicit font loading)
+    useEffect(() => {
+        loadFonts().then(() => setFontsLoaded(true)).catch(() => {
+            console.warn('[VEXFLOW] Font loading failed, using defaults')
+            setFontsLoaded(true) // proceed anyway with fallback fonts
+        })
+    }, [])
 
     const renderScore = useCallback(() => {
-        if (!score || !containerRef.current || score.measures.length === 0) return
+        if (!score || !containerRef.current || score.measures.length === 0 || !fontsLoaded) return
 
         // Clear previous render
         containerRef.current.innerHTML = ''
@@ -631,7 +641,7 @@ const VexFlowRendererComponent: React.FC<VexFlowRendererProps> = ({
             }
         })
 
-    }, [score, onRenderComplete])
+    }, [score, onRenderComplete, fontsLoaded])
 
     // Render when score changes
     useEffect(() => {
