@@ -202,7 +202,8 @@ const VexFlowRendererComponent: React.FC<VexFlowRendererProps> = ({
                     const beamableNotes: StaveNote[] = []
 
                     for (const note of voice.notes) {
-                        const staveNote = createStaveNote(note, staff.staffIndex, stemDir)
+                        const staveClef = staff.staffIndex === 0 ? currentTrebleClef : currentBassClef
+                        const staveNote = createStaveNote(note, staff.staffIndex, stemDir, staveClef)
 
                         for (let ki = 0; ki < note.accidentals.length; ki++) {
                             const acc = note.accidentals[ki]

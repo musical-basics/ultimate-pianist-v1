@@ -38,8 +38,13 @@ export interface VexFlowRenderResult {
  * Create a VexFlow StaveNote from an IntermediateNote.
  * If stemDirection is provided (1=up, -1=down), use it instead of autoStem.
  */
-export function createStaveNote(note: IntermediateNote, staffIndex: number, stemDirection?: number): StaveNote {
-    const clef = staffIndex === 0 ? 'treble' : 'bass'
+export function createStaveNote(
+    note: IntermediateNote,
+    staffIndex: number,
+    stemDirection?: number,
+    clefOverride?: string,
+): StaveNote {
+    const clef = clefOverride || (staffIndex === 0 ? 'treble' : 'bass')
 
     if (stemDirection !== undefined) {
         return new StaveNote({
