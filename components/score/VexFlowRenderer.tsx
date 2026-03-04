@@ -343,6 +343,23 @@ const VexFlowRendererComponent: React.FC<VexFlowRendererProps> = ({
                     voicesByStave.get(stave)!.push(v)
                 })
                 voicesByStave.forEach(voices => formatter.joinVoices(voices))
+
+                // Create Tuplet objects BEFORE formatting so VexFlow adjusts tick counts
+                // (3 eighth triplet notes occupy 2 eighths' worth of time → 1 quarter)
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                const vfTuplets: any[] = []
+                measureTuplets.forEach(t => {
+                    try {
+                        const tuplet = new Tuplet(t.notes, {
+                            numNotes: t.actual,
+                            notesOccupied: t.normal,
+                            bracketed: false, // beam already groups them visually
+                            yOffset: 8,       // bring "3" closer to the notes
+                        })
+                        vfTuplets.push(tuplet)
+                    } catch { /* ignore */ }
+                })
+
                 // Format all voices together for cross-stave X alignment
                 formatter.format(vfVoices, STAVE_WIDTH - 40)
 
@@ -383,16 +400,9 @@ const VexFlowRendererComponent: React.FC<VexFlowRendererProps> = ({
                 vfVoices.forEach(v => v.draw(context, voiceStaveMap.get(v)!))
                 measureBeams.forEach(b => b.setContext(context).draw())
 
-                // Draw tuplets
-                measureTuplets.forEach(t => {
-                    try {
-                        const tuplet = new Tuplet(t.notes, {
-                            numNotes: t.actual,
-                            notesOccupied: t.normal,
-                            bracketed: false, // beam already groups them
-                        })
-                        tuplet.setContext(context).draw()
-                    } catch { /* ignore */ }
+                // Draw tuplets (already created, just need rendering)
+                vfTuplets.forEach(t => {
+                    try { t.setContext(context).draw() } catch { /* ignore */ }
                 })
             }
 
