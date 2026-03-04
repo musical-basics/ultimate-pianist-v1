@@ -383,7 +383,51 @@ const VexFlowRendererComponent: React.FC<VexFlowRendererProps> = ({
                 })
 
                 // Format all voices together for cross-stave X alignment
-                formatter.format(vfVoices, STAVE_WIDTH - 40, { globalSoftmax: true, softmaxFactor: 100 })
+                formatter.format(vfVoices, STAVE_WIDTH - 40)
+
+                // Post-format: manually reposition notes in tuplet measures for proportional spacing
+                if (measureTuplets.length > 0) {
+                    // Collect all tuplet note IDs for quick lookup
+                    const tupletNoteSet = new Set<StaveNote>()
+                    measureTuplets.forEach(t => t.notes.forEach(n => tupletNoteSet.add(n)))
+
+                    // For each voice, redistribute X based on tick ratios
+                    vfVoices.forEach(v => {
+                        const tickables = v.getTickables() as StaveNote[]
+                        if (tickables.length < 2) return
+
+                        // Get the available X range from formatter
+                        const firstX = tickables[0].getAbsoluteX()
+                        const lastX = tickables[tickables.length - 1].getAbsoluteX()
+                        const totalWidth = lastX - firstX
+                        if (totalWidth <= 0) return
+
+                        // Calculate total ticks for this voice
+                        let totalTicks = 0
+                        const tickValues: number[] = []
+                        for (const t of tickables) {
+                            try {
+                                const ticks = (t as any).getTicks?.()?.value?.() ?? 2048
+                                tickValues.push(ticks)
+                                totalTicks += ticks
+                            } catch {
+                                tickValues.push(2048)
+                                totalTicks += 2048
+                            }
+                        }
+
+                        // Redistribute positions proportionally
+                        let accumulatedTicks = 0
+                        for (let i = 0; i < tickables.length; i++) {
+                            const newX = firstX + (accumulatedTicks / totalTicks) * totalWidth
+                            try {
+                                (tickables[i] as any).setXShift(newX - tickables[i].getAbsoluteX())
+                            } catch { /* ignore */ }
+                            accumulatedTicks += tickValues[i]
+                        }
+                        console.log(`[TUPLET-SPACE] M${measureNumber} repositioned ${tickables.length} notes proportionally`)
+                    })
+                }
 
                 // Post-format: reposition articulations based on resolved stem direction
                 // Single voice: notehead side (stem up → BELOW, stem down → ABOVE)
@@ -422,31 +466,43 @@ const VexFlowRendererComponent: React.FC<VexFlowRendererProps> = ({
                 vfVoices.forEach(v => v.draw(context, voiceStaveMap.get(v)!))
                 measureBeams.forEach(b => b.setContext(context).draw())
 
-                // Draw tuplets with before/after tracking to identify tuplet number SVG elements
+                // Draw tuplets, then center the "3" between first and last tuplet note
                 if (containerRef.current) {
                     const svgEl = containerRef.current.querySelector('svg')
-                    vfTuplets.forEach(t => {
+                    vfTuplets.forEach((t, tIdx) => {
                         try {
+                            // Get tuplet note X positions BEFORE drawing for centering
+                            const tupletData = measureTuplets[tIdx]
+                            let centerX = 0
+                            if (tupletData && tupletData.notes.length > 0) {
+                                const firstNoteX = tupletData.notes[0].getAbsoluteX()
+                                const lastNoteX = tupletData.notes[tupletData.notes.length - 1].getAbsoluteX()
+                                centerX = (firstNoteX + lastNoteX) / 2
+                            }
+
                             const textCountBefore = svgEl ? svgEl.querySelectorAll('text').length : 0
                             t.setContext(context).draw()
                             if (svgEl) {
                                 const allTexts = svgEl.querySelectorAll('text')
-                                // New text elements added by this tuplet draw
                                 for (let i = textCountBefore; i < allTexts.length; i++) {
                                     const textEl = allTexts[i]
                                     const content = textEl.textContent?.trim() || ''
                                     const charCodes = Array.from(content).map(c => c.charCodeAt(0))
-                                    const currentSize = parseFloat(textEl.getAttribute('font-size') || '0')
                                     const currentY = parseFloat(textEl.getAttribute('y') || '0')
-                                    console.log(`[TUPLET-NUM] M${measureNumber} found tuplet text: charCodes=[${charCodes}] size=${currentSize} y=${currentY}`)
-                                    // Always shrink and reposition — font-size may be inherited (0 here)
-                                    // Use transform scale as reliable fallback
+                                    console.log(`[TUPLET-NUM] M${measureNumber} found tuplet text: charCodes=[${charCodes}] y=${currentY} centerX=${centerX}`)
+
+                                    // Scale down and center above tuplet group
                                     textEl.setAttribute('transform', `scale(0.65)`)
-                                    // Adjust position to compensate for scale origin
-                                    const x = parseFloat(textEl.getAttribute('x') || '0')
-                                    textEl.setAttribute('x', String(x / 0.65))
+                                    // Position at center of tuplet group (compensate for scale)
+                                    if (centerX > 0) {
+                                        textEl.setAttribute('x', String(centerX / 0.65))
+                                        textEl.setAttribute('text-anchor', 'middle')
+                                    } else {
+                                        const origX = parseFloat(textEl.getAttribute('x') || '0')
+                                        textEl.setAttribute('x', String(origX / 0.65))
+                                    }
                                     textEl.setAttribute('y', String((currentY + 14) / 0.65))
-                                    console.log(`[TUPLET-NUM] M${measureNumber} applied scale(0.65), adjusted x/y`)
+                                    console.log(`[TUPLET-NUM] M${measureNumber} centered at x=${centerX}, applied scale(0.65)`)
                                 }
                             }
                         } catch { /* ignore */ }
