@@ -173,6 +173,7 @@ const VexFlowRendererComponent: React.FC<VexFlowRendererProps> = ({
 
             // Collections for synchronous formatting
             const vfVoices: Voice[] = []
+            const multiVoiceVoices = new Set<Voice>() // voices from multi-voice staves
             const voiceStaveMap = new Map<Voice, Stave>()
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const measureBeams: any[] = []
@@ -313,6 +314,7 @@ const VexFlowRendererComponent: React.FC<VexFlowRendererProps> = ({
                     vfVoice.addTickables(vfNotes)
                     vfVoices.push(vfVoice)
                     voiceStaveMap.set(vfVoice, stave)
+                    if (isMultiVoice) multiVoiceVoices.add(vfVoice)
 
                     if (beamableNotes.length >= 2) {
                         try {
@@ -345,9 +347,11 @@ const VexFlowRendererComponent: React.FC<VexFlowRendererProps> = ({
                 formatter.format(vfVoices, STAVE_WIDTH - 40)
 
                 // Post-format: reposition articulations based on resolved stem direction
-                // VexFlow v5 doesn't auto-flip articulation position with autoStem
-                // Convention: stem up → articulations BELOW (4), stem down → ABOVE (3)
+                // Single voice: notehead side (stem up → BELOW, stem down → ABOVE)
+                // Multi-voice: stem side (stem up → ABOVE, stem down → BELOW)
+                //   This prevents articulations landing between two voices' noteheads
                 vfVoices.forEach(v => {
+                    const isMulti = multiVoiceVoices.has(v)
                     const tickables = v.getTickables()
                     for (const t of tickables) {
                         const sn = t as StaveNote
@@ -359,7 +363,14 @@ const VexFlowRendererComponent: React.FC<VexFlowRendererProps> = ({
                                 const mod = m as any
                                 if (mod.getCategory?.() === 'articulations' || mod.constructor?.name === 'Articulation') {
                                     // Position: 3 = ABOVE, 4 = BELOW
-                                    const pos = stemDir === 1 ? 4 : 3
+                                    let pos: number
+                                    if (isMulti) {
+                                        // Multi-voice: stem side
+                                        pos = stemDir === 1 ? 3 : 4
+                                    } else {
+                                        // Single voice: notehead side
+                                        pos = stemDir === 1 ? 4 : 3
+                                    }
                                     mod.setPosition(pos)
                                     // Normalize distance from notehead (positive = down, negative = up)
                                     mod.setYShift(pos === 4 ? 2 : -2)
