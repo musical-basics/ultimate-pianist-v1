@@ -285,8 +285,8 @@ const VexFlowRendererComponent: React.FC<VexFlowRendererProps> = ({
                     }
 
                     // Flush any unclosed tuplet at end of voice
-                    // Only flush if 2+ notes (skip single-note cross-measure tuplets like M16)
-                    if (currentTupletNotes && currentTupletNotes.length >= 2) {
+                    // Flush any unclosed tuplet at end of voice
+                    if (currentTupletNotes && currentTupletNotes.length > 0) {
                         measureTuplets.push({
                             notes: currentTupletNotes,
                             actual: currentTupletActual,
@@ -468,10 +468,10 @@ const VexFlowRendererComponent: React.FC<VexFlowRendererProps> = ({
                             const tupletData = measureTuplets[tIdx]
                             let centerX = 0
                             if (tupletData && tupletData.notes.length > 0) {
-                                // Average of first and last note X for centered positioning
                                 const firstNoteX = tupletData.notes[0].getAbsoluteX()
                                 const lastNoteX = tupletData.notes[tupletData.notes.length - 1].getAbsoluteX()
-                                centerX = (firstNoteX + lastNoteX) / 2
+                                // Midpoint -5px to account for noteheads being measured from left edge
+                                centerX = (firstNoteX + lastNoteX) / 2 - 5
                             }
 
                             const textCountBefore = svgEl ? svgEl.querySelectorAll('text').length : 0
