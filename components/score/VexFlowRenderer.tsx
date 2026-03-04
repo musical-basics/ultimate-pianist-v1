@@ -72,6 +72,8 @@ const VexFlowRendererComponent: React.FC<VexFlowRendererProps> = ({
 
     const renderScore = useCallback(() => {
         if (!score || !containerRef.current || score.measures.length === 0 || !fontsLoaded) return
+        // Ensure the correct font is active BEFORE creating any VexFlow objects
+        VexFlow.setFonts(musicFont)
         console.log('[FONT DEBUG] renderScore firing, musicFont =', JSON.stringify(musicFont), 'VexFlow.getFonts():', VexFlow.getFonts())
 
         // Clear previous render
