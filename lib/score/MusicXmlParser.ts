@@ -121,6 +121,7 @@ export function parseMusicXmlString(xmlText: string): IntermediateScore {
         let currentPosition = 0  // in divisions
         let lastStaffNum = 1
         let lastVoiceNum = 1
+        const pendingGraceNotes: IntermediateNote[] = []
 
         const children = measureEl.children
         for (let ci = 0; ci < children.length; ci++) {
@@ -141,12 +142,12 @@ export function parseMusicXmlString(xmlText: string): IntermediateScore {
 
             if (tagName !== 'note') continue
 
-            // Skip grace notes for now (they don't count for timing)
-            if (child.querySelector('grace')) continue
+            // Grace notes: collect them and attach to next main note
+            const isGrace = child.querySelector('grace') !== null
 
             const isChord = child.querySelector('chord') !== null
             const isRest = child.querySelector('rest') !== null
-            const durationDivs = parseInt(child.querySelector('duration')?.textContent || '0')
+            const durationDivs = isGrace ? 0 : parseInt(child.querySelector('duration')?.textContent || '0')
 
             // If chord, don't advance position
             if (!isChord && durationDivs > 0) {
@@ -219,6 +220,8 @@ export function parseMusicXmlString(xmlText: string): IntermediateScore {
             const notationsEl = child.querySelector('notations')
             let tupletStart = false
             let tupletStop = false
+            const slurStarts: number[] = []
+            const slurStops: number[] = []
             if (notationsEl) {
                 const articulationsEl = notationsEl.querySelector('articulations')
                 if (articulationsEl) {
@@ -234,6 +237,14 @@ export function parseMusicXmlString(xmlText: string): IntermediateScore {
                 tupletEls.forEach(t => {
                     if (t.getAttribute('type') === 'start') tupletStart = true
                     if (t.getAttribute('type') === 'stop') tupletStop = true
+                })
+
+                // Slur start/stop markers
+                const slurEls = notationsEl.querySelectorAll('slur')
+                slurEls.forEach(s => {
+                    const slurNum = parseInt(s.getAttribute('number') || '1')
+                    if (s.getAttribute('type') === 'start') slurStarts.push(slurNum)
+                    if (s.getAttribute('type') === 'stop') slurStops.push(slurNum)
                 })
             }
 
@@ -256,15 +267,41 @@ export function parseMusicXmlString(xmlText: string): IntermediateScore {
 
             const group = staffVoiceNotes.get(svKey)!
 
+            // If this is a grace note, collect it and continue
+            if (isGrace) {
+                pendingGraceNotes.push({
+                    keys: [key],
+                    duration: vfDuration,
+                    dots: dotCount,
+                    isRest: false,
+                    accidentals: [accStr],
+                    tiesToNext: [false],
+                    articulations,
+                    beat: roundedBeat,
+                    vfId: `${vfId}-grace`,
+                    isGrace: true,
+                    slurStarts: slurStarts.length > 0 ? slurStarts : undefined,
+                    slurStops: slurStops.length > 0 ? slurStops : undefined,
+                })
+                continue
+            }
+
             if (isChord && group.notes.length > 0) {
                 // Add to the last note as a chord (merge keys)
                 const lastNote = group.notes[group.notes.length - 1]
                 lastNote.keys.push(key)
                 lastNote.accidentals.push(accStr)
                 lastNote.tiesToNext.push(hasTieStart)
+                // Merge slur data into chord
+                if (slurStarts.length > 0) {
+                    lastNote.slurStarts = [...(lastNote.slurStarts || []), ...slurStarts]
+                }
+                if (slurStops.length > 0) {
+                    lastNote.slurStops = [...(lastNote.slurStops || []), ...slurStops]
+                }
             } else {
                 // New note/rest
-                group.notes.push({
+                const newNote: IntermediateNote = {
                     keys: [key],
                     duration: vfDuration,
                     dots: dotCount,
@@ -278,7 +315,17 @@ export function parseMusicXmlString(xmlText: string): IntermediateScore {
                     tupletNormal,
                     tupletStart,
                     tupletStop,
-                })
+                    slurStarts: slurStarts.length > 0 ? slurStarts : undefined,
+                    slurStops: slurStops.length > 0 ? slurStops : undefined,
+                }
+
+                // Attach any pending grace notes to this main note
+                if (pendingGraceNotes.length > 0) {
+                    newNote.graceNotes = [...pendingGraceNotes]
+                    pendingGraceNotes.length = 0
+                }
+
+                group.notes.push(newNote)
             }
 
             // Advance position (only for non-chord notes)

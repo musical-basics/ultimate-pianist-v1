@@ -110,4 +110,24 @@ export interface IntermediateNote {
 
     /** True if this note ends a tuplet group */
     tupletStop?: boolean;
+
+    /** True if this note is a grace note (has no rhythmic duration) */
+    isGrace?: boolean;
+
+    /**
+     * Grace notes attached to this main note (rendered before it).
+     * Each item contains the same fields as IntermediateNote but with isGrace=true.
+     */
+    graceNotes?: IntermediateNote[];
+
+    /**
+     * Slur start: this note begins a slur with the given number.
+     * Number is used to match start/stop pairs (MusicXML slur number attribute).
+     */
+    slurStarts?: number[];
+
+    /**
+     * Slur stop: this note ends a slur with the given number.
+     */
+    slurStops?: number[];
 }

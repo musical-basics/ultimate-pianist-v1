@@ -3,7 +3,7 @@
 // Shared constants, types, and helper functions used by VexFlowRenderer.
 // Keeps the renderer component lean and focused on layout + rendering.
 
-import { StaveNote, Articulation } from 'vexflow'
+import { StaveNote, Articulation, GraceNote, GraceNoteGroup, Curve } from 'vexflow'
 import type { IntermediateNote } from '@/lib/score/IntermediateScore'
 
 // ─── Layout Constants ──────────────────────────────────────────────
@@ -173,4 +173,92 @@ export function detectHeuristicTuplets(
     }
 
     return detected
+}
+
+// ─── Grace Note Helpers ────────────────────────────────────────────
+
+/**
+ * Create a VexFlow GraceNoteGroup from IntermediateNote.graceNotes
+ * and attach it to the given StaveNote.
+ */
+export function attachGraceNotes(
+    mainNote: StaveNote,
+    graceNotes: IntermediateNote[],
+    staffIndex: number,
+    clef?: string,
+): void {
+    if (graceNotes.length === 0) return
+
+    const vfGraceNotes = graceNotes.map(gn => {
+        const graceClef = clef || (staffIndex === 0 ? 'treble' : 'bass')
+        const gnote = new GraceNote({
+            keys: gn.keys,
+            duration: gn.duration.replace(/[rd]/g, '') || '8', // strip rest/dot markers
+            clef: graceClef,
+            slash: true, // acciaccatura style (slashed)
+        })
+        // Add accidentals to grace notes
+        for (let ki = 0; ki < gn.accidentals.length; ki++) {
+            const acc = gn.accidentals[ki]
+            if (acc) gnote.addModifier(new Articulation(acc), ki)
+        }
+        return gnote
+    })
+
+    const graceGroup = new GraceNoteGroup(vfGraceNotes, true)
+    mainNote.addModifier(graceGroup)
+}
+
+// ─── Slur Helpers ──────────────────────────────────────────────────
+
+export interface SlurData {
+    /** The StaveNote where this slur starts */
+    startNote: StaveNote
+    /** The slur number from MusicXML (for matching) */
+    slurNumber: number
+}
+
+/**
+ * Track active (open) slurs across the score.
+ * Key: slur number, Value: SlurData with the start note.
+ */
+export type ActiveSlurs = Map<number, SlurData>
+
+/**
+ * Process slur starts/stops for a note and return completed Curve objects.
+ * Active slurs are tracked across measures via the activeSlurs map.
+ */
+export function processSlurs(
+    note: IntermediateNote,
+    staveNote: StaveNote,
+    activeSlurs: ActiveSlurs,
+): Curve[] {
+    const completedCurves: Curve[] = []
+
+    // Process slur stops first (a note can both stop and start slurs)
+    if (note.slurStops) {
+        for (const slurNum of note.slurStops) {
+            const slurData = activeSlurs.get(slurNum)
+            if (slurData) {
+                try {
+                    const curve = new Curve(slurData.startNote, staveNote, {
+                        cps: [{ x: 0, y: 20 }, { x: 0, y: 20 }],
+                    })
+                    completedCurves.push(curve)
+                } catch (e) {
+                    console.warn(`[SLUR] Failed to create curve for slur ${slurNum}:`, e)
+                }
+                activeSlurs.delete(slurNum)
+            }
+        }
+    }
+
+    // Process slur starts
+    if (note.slurStarts) {
+        for (const slurNum of note.slurStarts) {
+            activeSlurs.set(slurNum, { startNote: staveNote, slurNumber: slurNum })
+        }
+    }
+
+    return completedCurves
 }

@@ -28,7 +28,8 @@ import type { IntermediateScore } from '@/lib/score/IntermediateScore'
 import {
     STAVE_WIDTH, STAVE_Y_TREBLE, STAVE_SPACING, LEFT_MARGIN, SYSTEM_HEIGHT,
     createStaveNote, isBeamable, addArticulation, detectHeuristicTuplets,
-    type NoteData, type VexFlowRenderResult, type TupletData,
+    attachGraceNotes, processSlurs,
+    type NoteData, type VexFlowRenderResult, type TupletData, type ActiveSlurs,
 } from './VexFlowHelpers'
 
 export type { NoteData, VexFlowRenderResult }
@@ -82,6 +83,11 @@ const VexFlowRendererComponent: React.FC<VexFlowRendererProps> = ({
         // Track previous measure's last notes for ties
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const prevMeasureLastNotes: Map<string, { staveNote: any; keyIndex: number }> = new Map()
+
+        // Track active slurs across measures
+        const activeSlurs: ActiveSlurs = new Map()
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const allCurves: any[] = []
 
         // Store tie data for cross-measure ties
         interface TieRequest {
@@ -218,6 +224,19 @@ const VexFlowRendererComponent: React.FC<VexFlowRendererProps> = ({
 
                         staveNote.setAttribute('id', note.vfId)
                         vfNotes.push(staveNote)
+
+                        // Grace notes: attach to this main note
+                        if (note.graceNotes && note.graceNotes.length > 0) {
+                            try {
+                                attachGraceNotes(staveNote, note.graceNotes, staff.staffIndex, staveClef)
+                            } catch (e) {
+                                console.warn(`[GRACE] Failed to attach grace notes:`, e)
+                            }
+                        }
+
+                        // Slurs: track start/stop and collect completed curves
+                        const completedCurves = processSlurs(note, staveNote, activeSlurs)
+                        allCurves.push(...completedCurves)
 
                         // Tuplet tracking
 
@@ -546,6 +565,15 @@ const VexFlowRendererComponent: React.FC<VexFlowRendererProps> = ({
                 }).setContext(context).draw()
             } catch {
                 // Tie rendering may fail if notes are malformed — skip
+            }
+        }
+
+        // Draw all slur curves
+        for (const curve of allCurves) {
+            try {
+                curve.setContext(context).draw()
+            } catch {
+                // Curve rendering may fail if notes are malformed — skip
             }
         }
 
