@@ -55,8 +55,10 @@ const VexFlowRendererComponent: React.FC<VexFlowRendererProps> = ({
     const [isRendered, setIsRendered] = useState(false)
     const [fontsLoaded, setFontsLoaded] = useState(false)
 
-    // Load music font once (VexFlow v5 requires explicit font loading)
+    // Load music font (VexFlow v5 requires explicit font loading)
+    // Reset fontsLoaded on every change so renderScore waits for the new font
     useEffect(() => {
+        setFontsLoaded(false)
         VexFlow.loadFonts(musicFont).then(() => {
             VexFlow.setFonts(musicFont)
             setFontsLoaded(true)
