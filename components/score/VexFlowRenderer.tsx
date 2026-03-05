@@ -644,8 +644,12 @@ const VexFlowRendererComponent: React.FC<VexFlowRendererProps> = ({
                         })
                     }
 
-                    // Cache absoluteX for reveal mode calculations
-                    note.absoluteX = note.element.getBoundingClientRect().left - cLeft
+                    // Cache absoluteX for reveal mode calculations.
+                    // Use note-core group (excludes grace notes) for accurate position —
+                    // grace notes extend the parent's bounding box to the left,
+                    // causing premature reveal in NOTE mode.
+                    const coreForX = note.element.querySelector('.vf-note-core') as HTMLElement
+                    note.absoluteX = (coreForX || note.element).getBoundingClientRect().left - cLeft
                 }
             })
             console.log(`[VFR DOM] Elements: populated=${populatedCount} missing=${missingCount}`)

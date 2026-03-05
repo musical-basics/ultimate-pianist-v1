@@ -209,7 +209,8 @@ const ScrollViewComponent: React.FC<ScrollViewProps> = ({
             result.noteMap.forEach((notes) => {
                 for (const note of notes) {
                     if (note.element) {
-                        note.absoluteX = note.element.getBoundingClientRect().left - cLeft
+                        const core = note.element.querySelector('.vf-note-core') as HTMLElement
+                        note.absoluteX = (core || note.element).getBoundingClientRect().left - cLeft
                         populatedCount++
                     }
                 }
