@@ -130,7 +130,7 @@ export const WaveformTimeline: React.FC<WaveformTimelineProps> = ({
         return () => { if (rafRef.current) cancelAnimationFrame(rafRef.current) }
     }, [isPlaying, zoom, audioBuffer])
 
-    const handleContainerClick = (e: React.MouseEvent) => {
+    const handleContainerClick = (e: React.PointerEvent) => {
         const container = containerRef.current
         if (!container || !audioBuffer) return
         const rect = container.getBoundingClientRect()
@@ -152,19 +152,19 @@ export const WaveformTimeline: React.FC<WaveformTimelineProps> = ({
             </div>
 
             <div ref={containerRef} className="overflow-x-auto relative" style={{ height: '120px' }}>
-                <canvas ref={canvasRef} className="absolute left-0 top-0 cursor-text" onMouseDown={handleContainerClick} />
+                <canvas ref={canvasRef} className="absolute left-0 top-0 cursor-text" onPointerDown={handleContainerClick} />
                 <div ref={playbackCursorRef} className="absolute top-0 bottom-0 w-[2px] bg-blue-500 z-30 pointer-events-none transition-none" style={{ left: 0, willChange: 'transform' }} />
 
                 {beatAnchors.map(b => (
                     <div key={`b-${b.measure}-${b.beat}`}
                         className="absolute top-0 h-full w-[2px] bg-yellow-400 hover:bg-white cursor-ew-resize z-10 group"
                         style={{ left: `${b.time * zoom}px` }}
-                        onMouseDown={e => {
+                        onPointerDown={e => {
                             e.stopPropagation()
                             const startX = e.clientX; const startTime = b.time
-                            const onMove = (ev: MouseEvent) => onBeatAnchorDrag?.(b.measure, b.beat, Math.max(0, startTime + (ev.clientX - startX) / zoom))
-                            const onUp = () => { window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp) }
-                            window.addEventListener('mousemove', onMove); window.addEventListener('mouseup', onUp)
+                            const onMove = (ev: PointerEvent) => onBeatAnchorDrag?.(b.measure, b.beat, Math.max(0, startTime + (ev.clientX - startX) / zoom))
+                            const onUp = () => { window.removeEventListener('pointermove', onMove); window.removeEventListener('pointerup', onUp) }
+                            window.addEventListener('pointermove', onMove); window.addEventListener('pointerup', onUp)
                         }}
                     >
                         <div className="absolute top-5 left-1/2 -translate-x-1/2 bg-yellow-500 text-black text-[9px] px-1 rounded opacity-0 group-hover:opacity-100 whitespace-nowrap font-bold shadow-sm pointer-events-none">
@@ -177,12 +177,12 @@ export const WaveformTimeline: React.FC<WaveformTimelineProps> = ({
                     <div key={`m-${a.measure}`}
                         className="absolute top-0 h-full w-[2px] bg-red-500 hover:bg-white cursor-ew-resize z-20 group"
                         style={{ left: `${a.time * zoom}px` }}
-                        onMouseDown={e => {
+                        onPointerDown={e => {
                             e.stopPropagation()
                             const startX = e.clientX; const startTime = a.time
-                            const onMove = (ev: MouseEvent) => onAnchorDrag?.(a.measure, Math.max(0, startTime + (ev.clientX - startX) / zoom))
-                            const onUp = () => { window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp) }
-                            window.addEventListener('mousemove', onMove); window.addEventListener('mouseup', onUp)
+                            const onMove = (ev: PointerEvent) => onAnchorDrag?.(a.measure, Math.max(0, startTime + (ev.clientX - startX) / zoom))
+                            const onUp = () => { window.removeEventListener('pointermove', onMove); window.removeEventListener('pointerup', onUp) }
+                            window.addEventListener('pointermove', onMove); window.addEventListener('pointerup', onUp)
                         }}
                     >
                         <div className="absolute top-1 left-1/2 -translate-x-1/2 bg-red-600 text-white text-[10px] px-1 rounded opacity-0 group-hover:opacity-100 whitespace-nowrap font-bold pointer-events-none">

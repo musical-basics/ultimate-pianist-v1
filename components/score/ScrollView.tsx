@@ -585,7 +585,7 @@ const ScrollViewComponent: React.FC<ScrollViewProps> = ({
     }, [isLoaded, updateCursorPosition])
 
     // ─── Score Click (rewritten for VexFlow maps) ──────────────────
-    const handleScoreClick = useCallback((event: React.MouseEvent) => {
+    const handleScoreClick = useCallback((event: React.PointerEvent) => {
         if (!containerRef.current || measureXMap.size === 0) return
         const rect = containerRef.current.getBoundingClientRect()
         const clickX = event.clientX - rect.left
@@ -646,16 +646,16 @@ const ScrollViewComponent: React.FC<ScrollViewProps> = ({
                     return (
                         <div key={`m-${anchor.measure}`} className="absolute top-0 flex flex-col items-center group z-[1001] cursor-ew-resize pointer-events-auto hover:scale-110 transition-transform origin-top"
                             style={{ left: `${leftPixel}px`, transform: 'translateX(-50%)' }}
-                            onMouseDown={(e: React.MouseEvent) => {
+                            onPointerDown={(e: React.PointerEvent) => {
                                 e.stopPropagation()
                                 const startX = e.clientX; const initialTime = anchor.time;
                                 const totalWidth = containerRef.current?.scrollWidth || 1000
                                 const secondsPerPixel = (duration || 100) / totalWidth
-                                const handleUp = (upEvent: MouseEvent) => {
+                                const handleUp = (upEvent: PointerEvent) => {
                                     if (onUpdateAnchor) onUpdateAnchor(anchor.measure, Math.max(0, initialTime + ((upEvent.clientX - startX) * secondsPerPixel)))
-                                    window.removeEventListener('mouseup', handleUp)
+                                    window.removeEventListener('pointerup', handleUp)
                                 }
-                                window.addEventListener('mouseup', handleUp)
+                                window.addEventListener('pointerup', handleUp)
                             }}
                         >
                             <div className="bg-red-600/90 text-white text-[9px] font-bold px-1 rounded-sm shadow-sm mb-0.5 select-none">M{anchor.measure}</div>
@@ -672,16 +672,16 @@ const ScrollViewComponent: React.FC<ScrollViewProps> = ({
                     return (
                         <div key={`b-${bAnchor.measure}-${bAnchor.beat}`} className="absolute top-6 flex flex-col items-center group z-[1000] cursor-ew-resize pointer-events-auto hover:scale-110 transition-transform origin-top"
                             style={{ left: `${leftPixel}px`, transform: 'translateX(-50%)' }}
-                            onMouseDown={(e: React.MouseEvent) => {
+                            onPointerDown={(e: React.PointerEvent) => {
                                 e.stopPropagation()
                                 const startX = e.clientX; const initialTime = bAnchor.time;
                                 const totalWidth = containerRef.current?.scrollWidth || 1000
                                 const secondsPerPixel = (duration || 100) / totalWidth
-                                const handleUp = (upEvent: MouseEvent) => {
+                                const handleUp = (upEvent: PointerEvent) => {
                                     if (onUpdateBeatAnchor) onUpdateBeatAnchor(bAnchor.measure, bAnchor.beat, Math.max(0, initialTime + ((upEvent.clientX - startX) * secondsPerPixel)))
-                                    window.removeEventListener('mouseup', handleUp)
+                                    window.removeEventListener('pointerup', handleUp)
                                 }
-                                window.addEventListener('mouseup', handleUp)
+                                window.addEventListener('pointerup', handleUp)
                             }}
                         >
                             <div className="bg-yellow-500/90 text-black text-[8px] font-bold px-1 rounded-sm shadow-sm mb-0.5 select-none">{bAnchor.beat}</div>

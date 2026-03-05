@@ -182,7 +182,7 @@ export const MidiTimeline: React.FC<MidiTimelineProps> = ({
         return () => { if (rafRef.current) cancelAnimationFrame(rafRef.current) }
     }, [isPlaying, zoom, parsedMidi])
 
-    const handleClick = (e: React.MouseEvent) => {
+    const handleClick = (e: React.PointerEvent) => {
         const container = containerRef.current
         if (!container || !parsedMidi) return
         const rect = container.getBoundingClientRect()
@@ -218,7 +218,7 @@ export const MidiTimeline: React.FC<MidiTimelineProps> = ({
 
             {/* Canvas + overlays */}
             <div ref={containerRef} className="overflow-x-auto overflow-y-hidden relative" style={{ height: `${Math.min(160, CANVAS_HEIGHT)}px` }}>
-                <canvas ref={canvasRef} className="absolute left-0 top-0 cursor-text" onMouseDown={handleClick} />
+                <canvas ref={canvasRef} className="absolute left-0 top-0 cursor-text" onPointerDown={handleClick} />
 
                 {/* Playback cursor */}
                 <div ref={playbackCursorRef} className="absolute top-0 bottom-0 w-[2px] bg-blue-500 z-30 pointer-events-none transition-none" style={{ left: 0, willChange: 'transform' }} />
@@ -243,12 +243,12 @@ export const MidiTimeline: React.FC<MidiTimelineProps> = ({
                     <div key={`mb-${b.measure}-${b.beat}`}
                         className="absolute top-0 h-full w-[2px] bg-yellow-400 hover:bg-white cursor-ew-resize z-10 group"
                         style={{ left: `${LABEL_WIDTH + b.time * zoom}px` }}
-                        onMouseDown={e => {
+                        onPointerDown={e => {
                             e.stopPropagation()
                             const startX = e.clientX; const startTime = b.time
-                            const onMove = (ev: MouseEvent) => onBeatAnchorDrag?.(b.measure, b.beat, Math.max(0, startTime + (ev.clientX - startX) / zoom))
-                            const onUp = () => { window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp) }
-                            window.addEventListener('mousemove', onMove); window.addEventListener('mouseup', onUp)
+                            const onMove = (ev: PointerEvent) => onBeatAnchorDrag?.(b.measure, b.beat, Math.max(0, startTime + (ev.clientX - startX) / zoom))
+                            const onUp = () => { window.removeEventListener('pointermove', onMove); window.removeEventListener('pointerup', onUp) }
+                            window.addEventListener('pointermove', onMove); window.addEventListener('pointerup', onUp)
                         }}
                     >
                         <div className="absolute bottom-1 left-1/2 -translate-x-1/2 bg-yellow-500 text-black text-[8px] px-0.5 rounded opacity-0 group-hover:opacity-100 whitespace-nowrap font-bold pointer-events-none">
@@ -262,12 +262,12 @@ export const MidiTimeline: React.FC<MidiTimelineProps> = ({
                     <div key={`mm-${a.measure}`}
                         className="absolute top-0 h-full w-[2px] bg-red-500 hover:bg-white cursor-ew-resize z-20 group"
                         style={{ left: `${LABEL_WIDTH + a.time * zoom}px` }}
-                        onMouseDown={e => {
+                        onPointerDown={e => {
                             e.stopPropagation()
                             const startX = e.clientX; const startTime = a.time
-                            const onMove = (ev: MouseEvent) => onAnchorDrag?.(a.measure, Math.max(0, startTime + (ev.clientX - startX) / zoom))
-                            const onUp = () => { window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp) }
-                            window.addEventListener('mousemove', onMove); window.addEventListener('mouseup', onUp)
+                            const onMove = (ev: PointerEvent) => onAnchorDrag?.(a.measure, Math.max(0, startTime + (ev.clientX - startX) / zoom))
+                            const onUp = () => { window.removeEventListener('pointermove', onMove); window.removeEventListener('pointerup', onUp) }
+                            window.addEventListener('pointermove', onMove); window.addEventListener('pointerup', onUp)
                         }}
                     >
                         <div className="absolute top-0 left-1/2 -translate-x-1/2 bg-red-600 text-white text-[9px] px-1 rounded opacity-0 group-hover:opacity-100 whitespace-nowrap font-bold pointer-events-none">

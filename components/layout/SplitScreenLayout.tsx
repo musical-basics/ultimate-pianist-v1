@@ -145,11 +145,11 @@ export const SplitScreenLayout: React.FC<SplitScreenLayoutProps> = ({
     const isDraggingRef = useRef(false)
     const containerFullRef = useRef<HTMLDivElement>(null)
 
-    const onMouseDown = useCallback((e: React.MouseEvent) => {
+    const onPointerDown = useCallback((e: React.PointerEvent) => {
         e.preventDefault()
         isDraggingRef.current = true
 
-        const onMouseMove = (ev: MouseEvent) => {
+        const onMouseMove = (ev: PointerEvent) => {
             if (!isDraggingRef.current || !containerFullRef.current) return
             const rect = containerFullRef.current.getBoundingClientRect()
             const pct = ((ev.clientY - rect.top) / rect.height) * 100
@@ -158,12 +158,12 @@ export const SplitScreenLayout: React.FC<SplitScreenLayoutProps> = ({
 
         const onMouseUp = () => {
             isDraggingRef.current = false
-            document.removeEventListener('mousemove', onMouseMove)
-            document.removeEventListener('mouseup', onMouseUp)
+            document.removeEventListener('pointermove', onMouseMove)
+            document.removeEventListener('pointerup', onMouseUp)
         }
 
-        document.addEventListener('mousemove', onMouseMove)
-        document.addEventListener('mouseup', onMouseUp)
+        document.addEventListener('pointermove', onMouseMove)
+        document.addEventListener('pointerup', onMouseUp)
     }, [])
 
     return (
@@ -201,7 +201,7 @@ export const SplitScreenLayout: React.FC<SplitScreenLayoutProps> = ({
             </div>
 
             <div
-                onMouseDown={onMouseDown}
+                onPointerDown={onPointerDown}
                 className={`h-2 bg-zinc-700 hover:bg-purple-500 active:bg-purple-500 cursor-row-resize flex items-center justify-center transition-colors shrink-0 select-none ${(!showScore || !showWaterfall) ? 'hidden' : ''}`}
             >
                 <div className="w-10 h-1 rounded-full bg-zinc-500" />

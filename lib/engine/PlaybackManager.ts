@@ -233,10 +233,28 @@ export class PlaybackManager {
 
     // ─── Cleanup ──────────────────────────────────────────────────
 
+    private _visibilityHandler: (() => void) | null = null
+
+    /** Auto-pause when app goes to background (prevents iOS WebGL/Audio context crash) */
+    setupVisibilityHandler(): void {
+        if (this._visibilityHandler) return
+        this._visibilityHandler = () => {
+            if (document.hidden && this.isPlaying) {
+                console.log('[PlaybackManager] App backgrounded — auto-pausing')
+                this.pause()
+            }
+        }
+        document.addEventListener('visibilitychange', this._visibilityHandler)
+    }
+
     async destroy(): Promise<void> {
         this._isPlaying = false
         this._audioElement = null
         this.listeners.clear()
+        if (this._visibilityHandler) {
+            document.removeEventListener('visibilitychange', this._visibilityHandler)
+            this._visibilityHandler = null
+        }
         if (this.audioContext) {
             await this.audioContext.close()
             this.audioContext = null
@@ -251,6 +269,7 @@ let _instance: PlaybackManager | null = null
 export function getPlaybackManager(): PlaybackManager {
     if (!_instance) {
         _instance = new PlaybackManager()
+        if (typeof document !== 'undefined') _instance.setupVisibilityHandler()
     }
     return _instance
 }
