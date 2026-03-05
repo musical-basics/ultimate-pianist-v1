@@ -56,23 +56,16 @@ const VexFlowRendererComponent: React.FC<VexFlowRendererProps> = ({
     const [isRendered, setIsRendered] = useState(false)
     const [fontsLoaded, setFontsLoaded] = useState(false)
 
-    // Preload ALL music fonts once on mount (VexFlow v5 requires explicit font loading)
+    // Preload ALL music fonts once on mount (DreamFlow forces browser download internally)
     useEffect(() => {
-        console.log('[FONT DEBUG] Preloading all VexFlow fonts...')
+        console.log('[FONT DEBUG] Preloading all DreamFlow fonts...')
         VexFlow.loadFonts('Bravura', 'Gonville', 'Petaluma', 'Academico')
             .then(() => {
-                // FORCE the browser to download the fonts before rendering the SVG
-                return Promise.all([
-                    document.fonts.load('30px "Bravura"'),
-                    document.fonts.load('30px "Gonville"'),
-                    document.fonts.load('30px "Petaluma"'),
-                    document.fonts.load('30px "Academico"')
-                ]);
-            })
-            .then(() => {
+                // DreamFlow's Font.load() now calls document.fonts.load() internally,
+                // so no redundant browser-level font loading is needed here.
                 setFontsLoaded(true)
             }).catch((err: unknown) => {
-                console.warn('[VEXFLOW] Font preloading failed, using defaults', err)
+                console.warn('[DREAMFLOW] Font preloading failed, using defaults', err)
                 setFontsLoaded(true)
             })
     }, [])
