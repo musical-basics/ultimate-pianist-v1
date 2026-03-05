@@ -256,29 +256,27 @@ const ScrollViewComponent: React.FC<ScrollViewProps> = ({
 
     // ─── Reveal Mode transitions ────────────────────────────────────
     useEffect(() => {
-        console.log(`[ScrollView REVEAL] Mode changed: ${prevRevealModeRef.current} → ${revealMode}`)
-
-        // When leaving NOTE mode: restore all note opacities
+        // When leaving NOTE mode: restore all note opacities & reset states
         if (prevRevealModeRef.current === 'NOTE' && revealMode !== 'NOTE') {
-            console.log('[ScrollView REVEAL] Leaving NOTE mode — restoring all notes')
             noteMap.current.forEach(notes => {
                 notes.forEach(n => {
                     if (n.element) n.element.style.opacity = '1'
+                    n.isRevealed = undefined // Force re-eval if we toggle NOTE mode again
                 })
             })
         }
 
         // When entering NOTE mode: hide all notes initially
         if (revealMode === 'NOTE') {
-            console.log('[ScrollView REVEAL] Entering NOTE mode — hiding all notes')
             noteMap.current.forEach(notes => {
                 notes.forEach(n => {
                     if (n.element) n.element.style.opacity = '0'
+                    n.isRevealed = false
                 })
             })
+            lastMeasureIndexRef.current = -1
         }
 
-        // When leaving CURTAIN mode: hide curtain
         if (curtainRef.current && revealMode !== 'CURTAIN') {
             curtainRef.current.style.display = 'none'
         }
@@ -286,7 +284,8 @@ const ScrollViewComponent: React.FC<ScrollViewProps> = ({
         prevRevealModeRef.current = revealMode
     }, [revealMode])
 
-    // ─── Dark Mode coloring ────────────────────────────────────────
+    // ─── Dark Mode & Effects coloring invalidation ────────────────────
+    const previewEffects = useAppStore((s) => s.previewEffects)
     useEffect(() => {
         const baseColor = darkMode ? '#e0e0e0' : '#000000'
         const bgColor = darkMode ? '#18181b' : '#ffffff'
@@ -294,9 +293,10 @@ const ScrollViewComponent: React.FC<ScrollViewProps> = ({
         staffLinesRef.current.forEach(el => applyColor(el, baseColor))
         if (scrollContainerRef.current) scrollContainerRef.current.style.backgroundColor = bgColor
         if (curtainRef.current) curtainRef.current.style.backgroundColor = bgColor
-        // Invalidate isActive state so notes re-render in new theme
+
+        // Invalidate isActive state so notes re-render immediately when toggling settings
         noteMap.current.forEach(notes => notes.forEach(n => { n.isActive = undefined }))
-    }, [darkMode, isLoaded])
+    }, [darkMode, isLoaded, highlightNote, glowEffect, popEffect, jumpEffect, previewEffects])
 
     // ─── Cursor Positioning (rewritten for VexFlow maps) ───────────
     const updateCursorPosition = useCallback((audioTime: number) => {
@@ -358,82 +358,87 @@ const ScrollViewComponent: React.FC<ScrollViewProps> = ({
                 }
             }
 
-            // ─── CURTAIN reveal: overlay behind cursor ──────────────
+            // ─── CURTAIN reveal ─────────────────
             if (curtainRef.current) {
                 if (revealMode === 'CURTAIN') {
                     curtainRef.current.style.display = 'block'
                     const offset = curtainLookahead * 600
                     const curtainStart = cursorX + offset
-                    const lastMeasureNum = Math.max(...Array.from(measureXMap.keys()))
+                    const lastMeasureNum = Math.max(...Array.from(measureXMap.keys()), 1)
                     const lastMeasureX = measureXMap.get(lastMeasureNum) || 0
-                    const totalWidth = lastMeasureX + 300
+                    const totalWidth = lastMeasureX + 500
                     curtainRef.current.style.left = `${curtainStart}px`
-                    curtainRef.current.style.width = `${Math.max(0, totalWidth - curtainStart + 800)}px`
-                    // Height handled by CSS top:0/bottom:0 — no scrollHeight read needed
+                    curtainRef.current.style.width = `${Math.max(0, totalWidth - curtainStart)}px`
                     curtainRef.current.style.backgroundColor = darkMode ? '#18181b' : '#ffffff'
                 } else {
                     curtainRef.current.style.display = 'none'
                 }
             }
 
-            // ─── NOTE reveal: individual note opacity (no getBoundingClientRect) ─
+            // ─── NOTE reveal (Fixed Math Bug) ─
             if (revealMode === 'NOTE') {
-                const scrollLeft = scrollContainerRef.current?.scrollLeft || 0
                 noteMap.current.forEach((notes) => {
                     for (const n of notes) {
                         if (!n.element || n.absoluteX === undefined) continue
-                        const noteX = n.absoluteX + scrollLeft
+                        // FIX: Do not inflate by scrollLeft. Coordinate space matches exactly.
+                        const noteX = n.absoluteX
                         const isRevealed = noteX <= cursorX + 5
                         if (n.isRevealed !== isRevealed) {
                             n.isRevealed = isRevealed
                             n.element.style.opacity = isRevealed ? '1' : '0'
-                            n.element.style.transition = 'opacity 0.15s ease-out'
                         }
                     }
                 })
             }
 
+            // Clean up ALL stale measures if we changed measure boundaries or did a rapid seek
             if (currentMeasureIndex !== lastMeasureIndexRef.current) {
-                // Deactivate previous measure's notes
-                if (lastMeasureIndexRef.current !== -1) {
-                    const prevNotes = noteMap.current.get(lastMeasureIndexRef.current + 1)
-                    if (prevNotes) {
-                        const defaultColor = darkMode ? '#e0e0e0' : '#000000'
-                        prevNotes.forEach(n => {
+                const defaultColor = darkMode ? '#e0e0e0' : '#000000'
+                noteMap.current.forEach((notes, mIdx) => {
+                    if (mIdx !== measure) {
+                        notes.forEach(n => {
                             if (n.isActive) {
                                 n.isActive = false
                                 if (n.element) {
                                     applyColor(n.element, defaultColor, n.pathsAndRects)
                                     if (n.stemElement) applyColor(n.stemElement, defaultColor)
                                     n.element.style.filter = 'none'
-                                    if (n.pathsAndRects) n.pathsAndRects.forEach(p => p.style.transform = 'scale(1) translateY(0)')
+                                    n.element.style.transform = 'scale(1) translateY(0)'
                                 }
                             }
                         })
                     }
-                }
+                })
                 if (onMeasureChange) onMeasureChange(measure)
             }
             lastMeasureIndexRef.current = currentMeasureIndex
 
-            // ─── Note Effects (unchanged logic) ────────────────────
+            // ─── Note Effects ────────────────────────
             const notesInMeasure = noteMap.current.get(measure)
-            const previewEffects = useAppStore.getState().previewEffects
             if (notesInMeasure && (!isAdmin || previewEffects)) {
                 let globalProgress = progress
                 if (isBeatInterpolation && beatXMapRef.current.has(measure)) {
-                    globalProgress = ((beat - 1) + progress) / beatXMapRef.current.get(measure)!.size
+                    // FIX: Math calculation uses correct Time Signature instead of `.size`
+                    const timeSigNum = notesInMeasure[0]?.numerator || 4
+                    let nextBeat = posData.nextBeat
+                    if (posData.nextMeasure !== measure || !nextBeat) {
+                        nextBeat = timeSigNum + 1
+                    }
+                    const exactBeat = beat + (nextBeat - beat) * progress
+                    globalProgress = (exactBeat - 1) / timeSigNum
                 }
+
                 const defaultColor = darkMode ? '#e0e0e0' : '#000000'
                 const highlightColor = '#10B981'; const shadowColor = '#10B981'
 
                 notesInMeasure.forEach(note => {
                     if (!note.element) return
+                    if (note.isRest) return  // FIX: Don't pop or highlight rests!
+
                     const lookahead = 0.04
                     const noteEndThreshold = note.timestamp + 0.01
                     const isActive = (globalProgress <= noteEndThreshold && globalProgress >= note.timestamp - lookahead)
 
-                    // State diffing: only touch DOM when state actually changes
                     if (note.isActive !== isActive) {
                         note.isActive = isActive
                         let tFill = defaultColor, tFilter = 'none', tTransform = 'scale(1) translateY(0)'
@@ -443,20 +448,19 @@ const ScrollViewComponent: React.FC<ScrollViewProps> = ({
                             if (glowEffect) tFilter = `drop-shadow(0 0 6px ${shadowColor})`
                             tTransform = `scale(${popEffect ? 1.4 : 1}) translateY(${jumpEffect ? -10 : 0}px)`
                         }
+
                         applyColor(note.element, tFill, note.pathsAndRects)
                         if (note.stemElement) applyColor(note.stemElement, tFill)
+
+                        // FIX: Apply transform & filter to the <g> group directly, not its sub-paths
                         note.element.style.filter = tFilter
-                        if (note.pathsAndRects) {
-                            note.pathsAndRects.forEach(p => p.style.transform = tTransform)
-                        } else {
-                            note.element.querySelectorAll('path, rect').forEach(p => (p as HTMLElement).style.transform = tTransform)
-                        }
+                        note.element.style.transform = tTransform
                     }
                 })
             }
 
         } catch { /* ignore */ }
-    }, [findCurrentPosition, isLoaded, measureXMap, revealMode, popEffect, jumpEffect, glowEffect, darkMode, highlightNote, cursorPosition, isLocked, curtainLookahead, showCursor, isAdmin, onMeasureChange])
+    }, [findCurrentPosition, isLoaded, measureXMap, revealMode, popEffect, jumpEffect, glowEffect, darkMode, highlightNote, cursorPosition, isLocked, curtainLookahead, showCursor, isAdmin, onMeasureChange, previewEffects])
 
     // ─── Animation Loop (unchanged) ────────────────────────────────
     useEffect(() => {

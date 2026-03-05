@@ -317,20 +317,24 @@ const VexFlowRendererComponent: React.FC<VexFlowRendererProps> = ({
                         }
 
                         // DELAY coordinate extraction until after the master Formatter runs
-                        if (!note.isRest) {
-                            coordinateExtractors.push(() => {
+                        coordinateExtractors.push(() => {
+                            if (!note.isRest) {
                                 try {
                                     measureBeatPositions.set(note.beat, staveNote.getAbsoluteX())
                                 } catch { /* ignore */ }
-                                measureNoteData.push({
-                                    id: note.vfId,
-                                    measureIndex: measureNumber,
-                                    timestamp: (note.beat - 1) / currentTimeSigNum,
-                                    element: null,
-                                    stemElement: null,
-                                })
+                            }
+
+                            // FIX: Push data for ALL notes/rests so Note Reveal can hide/show them
+                            measureNoteData.push({
+                                id: note.vfId,
+                                measureIndex: measureNumber,
+                                timestamp: (note.beat - 1) / currentTimeSigNum,
+                                isRest: note.isRest,
+                                numerator: currentTimeSigNum,
+                                element: null,
+                                stemElement: null,
                             })
-                        }
+                        })
                     }
 
                     // Heuristic triplet detection: detect unmarked triplets when
@@ -624,19 +628,29 @@ const VexFlowRendererComponent: React.FC<VexFlowRendererProps> = ({
         requestAnimationFrame(() => {
             if (!containerRef.current) return
 
+            const cLeft = containerRef.current.getBoundingClientRect().left
+
             // Populate noteMap element references
             allNoteData.forEach((notes) => {
                 for (const note of notes) {
                     const el = containerRef.current?.querySelector(`[id="${note.id}"]`) as HTMLElement
                     if (el) {
                         const group = el.closest('.vf-stavenote') as HTMLElement || el
-                        group.querySelectorAll('path, rect').forEach(p => {
-                            const pathEl = p as HTMLElement
-                            pathEl.style.transformBox = 'fill-box'
-                            pathEl.style.transformOrigin = 'center'
-                            pathEl.style.transition = 'transform 0.1s ease-out, fill 0.1s, stroke 0.1s'
+
+                        // FIX: Configure the <g> group for CSS transforms so stems don't detach
+                        group.style.transformBox = 'fill-box'
+                        group.style.transformOrigin = 'center bottom'
+                        group.style.transition = 'transform 0.1s ease-out, filter 0.1s, opacity 0.15s ease-out'
+
+                        const pathsAndRects = Array.from(group.querySelectorAll('path, rect')) as HTMLElement[]
+                        pathsAndRects.forEach(p => {
+                            // Keep color transition smooth for children
+                            p.style.transition = 'fill 0.1s, stroke 0.1s'
                         })
+
                         note.element = group
+                        note.pathsAndRects = pathsAndRects
+                        note.absoluteX = group.getBoundingClientRect().left - cLeft
                     }
                 }
             })

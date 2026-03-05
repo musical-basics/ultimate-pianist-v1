@@ -20,6 +20,8 @@ export type NoteData = {
     id: string
     measureIndex: number
     timestamp: number
+    isRest?: boolean     // Whether this note is a rest (skip effects, but allow reveal)
+    numerator?: number   // Time signature numerator for correct beat interpolation
     element: HTMLElement | null
     stemElement: HTMLElement | null
     // Pre-cached for animation loop (avoid per-frame DOM queries)
