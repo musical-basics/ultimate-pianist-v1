@@ -182,6 +182,9 @@ const ScrollViewComponent: React.FC<ScrollViewProps> = ({
             )
             extraGroups.forEach(el => {
                 const htmlEl = el as HTMLElement
+                // Skip elements inside .vf-stavenote — they're revealed with their parent note.
+                // Without this, grace note slashes/accidentals/staccatos appear before cursor.
+                if (htmlEl.closest('.vf-stavenote')) return
                 const rect = htmlEl.getBoundingClientRect()
                 const cls = htmlEl.getAttribute('class') || ''
                 // Ties/slurs/curves span ahead → use RIGHT edge (wait for cursor to pass end)
