@@ -25,6 +25,7 @@ export default function LearnPlayback() {
     const [config, setConfig] = useState<SongConfig | null>(null)
     const [parsedMidi, setParsedMidi] = useState<ParsedMidi | null>(null)
     const [loading, setLoading] = useState(true)
+    const [musicFont, setMusicFont] = useState('')
     const [displayTime, setDisplayTime] = useState(0)
     const [volume, setVolumeLocal] = useState(100)
     const [tempo, setTempoLocal] = useState(100)
@@ -54,6 +55,9 @@ export default function LearnPlayback() {
                     setConfig(data)
                     if (data.anchors) setAnchors(data.anchors)
                     if (data.beat_anchors) setBeatAnchors(data.beat_anchors)
+                    if (data.music_font) {
+                        setTimeout(() => setMusicFont(data.music_font!), 2000)
+                    }
                 }
             } catch (err) {
                 console.error('Failed to load config:', err)
@@ -269,6 +273,7 @@ export default function LearnPlayback() {
                     xmlUrl={config?.xml_url || null}
                     parsedMidi={parsedMidi}
                     isAdmin={false}
+                    musicFont={musicFont}
                 />
             </div>
         </div>
