@@ -5,18 +5,14 @@
 import { Application, Graphics, Container } from 'pixi.js'
 import type { NoteEvent, ParsedMidi } from '../types'
 import { NotePool } from './NotePool'
+import type { NoteItem } from './NotePool'
 import {
     calculatePianoMetricsFromDOM,
     calculatePianoMetrics,
-    isBlackKey,
     MIDI_MIN,
     MIDI_MAX,
-    type PianoMetrics,
 } from './pianoMetrics'
 import type { PlaybackManager } from './PlaybackManager'
-
-const ACTIVE_ALPHA = 0.95
-const INACTIVE_ALPHA = 0.75
 
 /**
  * Smooth velocity → rainbow color.
@@ -247,29 +243,39 @@ export class WaterfallRenderer {
 
             if ((noteTopY + noteHeight) < 0 || noteTopY > canvasH) continue
 
-            const sprite = this.notePool.acquire()
-            if (!sprite) break
-
-            sprite.x = Math.round(this.keyX[note.pitch])
-            sprite.y = noteTopY
+            const item = this.notePool.acquire()
+            if (!item) break
 
             const w = Math.round(this.keyW[note.pitch])
             const h = Math.max(Math.round(noteHeight), 12)
-            if (Math.round(sprite.width) !== w) sprite.width = w
-            if (Math.round(sprite.height) !== h) sprite.height = h
-
             const color = velocityToColor(note.velocity)
             const active = time >= note.startTimeSec && time <= note.endTimeSec
 
+            // Position the container
+            const baseX = Math.round(this.keyX[note.pitch])
+            item.container.x = active ? baseX - 1 : baseX
+            item.container.y = noteTopY
+
+            // Size both sprites
+            const finalW = active ? w + 2 : w
+            if (Math.round(item.fill.width) !== finalW) item.fill.width = finalW
+            if (Math.round(item.fill.height) !== h) item.fill.height = h
+            if (Math.round(item.border.width) !== finalW) item.border.width = finalW
+            if (Math.round(item.border.height) !== h) item.border.height = h
+
+            // Tint both sprites with velocity rainbow color
+            item.fill.tint = color
+            item.border.tint = color
+
+            // Density: fill alpha varies by velocity (soft=hollow, loud=solid)
+            // Border stays visible so note outlines are always clear
             if (active) {
                 this.activeThisFrame[note.pitch] = 1
-                sprite.tint = color
-                sprite.alpha = ACTIVE_ALPHA
-                sprite.x -= 1
-                sprite.width += 2
+                item.fill.alpha = Math.max(0.05, note.velocity / 127)
+                item.border.alpha = 1.0
             } else {
-                sprite.tint = color
-                sprite.alpha = INACTIVE_ALPHA
+                item.fill.alpha = Math.max(0.05, (note.velocity / 127) * 0.8)
+                item.border.alpha = 0.4
             }
         }
 
