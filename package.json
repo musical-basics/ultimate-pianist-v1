@@ -46,6 +46,7 @@
     "clsx": "^2.1.1",
     "cmdk": "1.1.1",
     "date-fns": "4.1.0",
+    "dreamflow": "file:../dreamflow",
     "embla-carousel-react": "8.6.0",
     "input-otp": "1.4.2",
     "lucide-react": "^0.564.0",
@@ -62,9 +63,9 @@
     "recharts": "2.15.0",
     "smplr": "^0.18.1",
     "sonner": "^1.7.1",
+    "structured-clone-es": "^1.0.0",
     "tailwind-merge": "^3.3.1",
     "vaul": "^1.1.2",
-    "dreamflow": "file:../dreamflow",
     "zod": "^3.24.1",
     "zustand": "^5.0.11"
   },
