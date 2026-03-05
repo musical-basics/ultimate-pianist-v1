@@ -20,6 +20,8 @@ interface AppStore {
     zoomLevel: number // pixels per second for waterfall
     velocityKeyColor: boolean // true = keys match note color, false = default purple
     noteGlow: boolean // true = glow aura on active notes
+    showScore: boolean // show sheet music view
+    showWaterfall: boolean // show waterfall view
 
     // === Score Follower State ===
     anchors: Anchor[]
@@ -53,6 +55,8 @@ interface AppStore {
     setZoomLevel: (zoom: number) => void
     setVelocityKeyColor: (on: boolean) => void
     setNoteGlow: (on: boolean) => void
+    setShowScore: (on: boolean) => void
+    setShowWaterfall: (on: boolean) => void
 
     // === Score Follower Actions ===
     setAnchors: (anchors: Anchor[]) => void
@@ -89,6 +93,8 @@ export const useAppStore = create<AppStore>((set) => ({
     zoomLevel: 200,
     velocityKeyColor: false,
     noteGlow: true,
+    showScore: true,
+    showWaterfall: true,
 
     // === Score Follower Initial State ===
     anchors: [{ measure: 1, time: 0 }],
@@ -133,6 +139,8 @@ export const useAppStore = create<AppStore>((set) => ({
     setZoomLevel: (zoom) => set({ zoomLevel: zoom }),
     setVelocityKeyColor: (velocityKeyColor) => set({ velocityKeyColor }),
     setNoteGlow: (noteGlow) => set({ noteGlow }),
+    setShowScore: (showScore) => set({ showScore }),
+    setShowWaterfall: (showWaterfall) => set({ showWaterfall }),
 
     // === Score Follower Actions ===
     setAnchors: (anchors) => set({ anchors }),

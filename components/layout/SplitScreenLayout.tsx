@@ -49,6 +49,8 @@ export const SplitScreenLayout: React.FC<SplitScreenLayoutProps> = ({
     const showCursor = useAppStore((s) => s.showCursor)
     const setCurrentMeasure = useAppStore((s) => s.setCurrentMeasure)
     const duration = useAppStore((s) => s.duration)
+    const showScore = useAppStore((s) => s.showScore)
+    const showWaterfall = useAppStore((s) => s.showWaterfall)
 
     const waterfallContainerRef = useRef<HTMLDivElement>(null)
     const audioRef = useRef<HTMLAudioElement | null>(null)
@@ -168,57 +170,63 @@ export const SplitScreenLayout: React.FC<SplitScreenLayoutProps> = ({
         <div ref={containerFullRef} className="flex flex-col h-full w-full overflow-hidden bg-zinc-950">
             {children}
 
-            <div style={{ height: `${topPercent}%` }} className="relative overflow-hidden shrink-0">
-                <ScrollView
-                    xmlUrl={xmlUrl}
-                    anchors={anchors}
-                    beatAnchors={beatAnchors}
-                    isPlaying={isPlaying}
-                    isAdmin={isAdmin}
-                    darkMode={darkMode}
-                    revealMode={revealMode}
-                    highlightNote={highlightNote}
-                    glowEffect={glowEffect}
-                    popEffect={popEffect}
-                    jumpEffect={jumpEffect}
-                    isLocked={isLocked}
-                    cursorPosition={cursorPosition}
-                    curtainLookahead={curtainLookahead}
-                    showCursor={showCursor}
-                    duration={duration}
-                    onMeasureChange={handleMeasureChange}
-                    onUpdateAnchor={isAdmin ? onUpdateAnchor : undefined}
-                    onUpdateBeatAnchor={isAdmin ? onUpdateBeatAnchor : undefined}
-                    onScoreLoaded={onScoreLoaded}
-                    musicFont={musicFont}
-                />
-            </div>
-
-            <div
-                onMouseDown={onMouseDown}
-                className="h-2 bg-zinc-700 hover:bg-purple-500 active:bg-purple-500 cursor-row-resize flex items-center justify-center transition-colors shrink-0 select-none"
-            >
-                <div className="w-10 h-1 rounded-full bg-zinc-500" />
-            </div>
-
-            <div className="flex-1 flex flex-col overflow-hidden min-h-0">
-                <div className="flex-1 relative bg-black/50 min-h-0">
-                    <div ref={waterfallContainerRef} className="relative w-full h-full">
-                        {!rendererReady && (
-                            <div className="absolute inset-0 flex items-center justify-center">
-                                <div className="text-center space-y-2 opacity-30">
-                                    <div className="w-10 h-10 mx-auto rounded-full border-2 border-dashed border-zinc-600 flex items-center justify-center">
-                                        <div className="w-2 h-2 rounded-full bg-purple-500 animate-pulse" />
-                                    </div>
-                                    <p className="text-zinc-600 text-xs">Initializing...</p>
-                                </div>
-                            </div>
-                        )}
-                    </div>
+            {showScore && (
+                <div style={{ height: showWaterfall ? `${topPercent}%` : '100%' }} className="relative overflow-hidden shrink-0">
+                    <ScrollView
+                        xmlUrl={xmlUrl}
+                        anchors={anchors}
+                        beatAnchors={beatAnchors}
+                        isPlaying={isPlaying}
+                        isAdmin={isAdmin}
+                        darkMode={darkMode}
+                        revealMode={revealMode}
+                        highlightNote={highlightNote}
+                        glowEffect={glowEffect}
+                        popEffect={popEffect}
+                        jumpEffect={jumpEffect}
+                        isLocked={isLocked}
+                        cursorPosition={cursorPosition}
+                        curtainLookahead={curtainLookahead}
+                        showCursor={showCursor}
+                        duration={duration}
+                        onMeasureChange={handleMeasureChange}
+                        onUpdateAnchor={isAdmin ? onUpdateAnchor : undefined}
+                        onUpdateBeatAnchor={isAdmin ? onUpdateBeatAnchor : undefined}
+                        onScoreLoaded={onScoreLoaded}
+                        musicFont={musicFont}
+                    />
                 </div>
+            )}
 
-                <PianoKeyboard />
-            </div>
+            {showScore && showWaterfall && (
+                <div
+                    onMouseDown={onMouseDown}
+                    className="h-2 bg-zinc-700 hover:bg-purple-500 active:bg-purple-500 cursor-row-resize flex items-center justify-center transition-colors shrink-0 select-none"
+                >
+                    <div className="w-10 h-1 rounded-full bg-zinc-500" />
+                </div>
+            )}
+
+            {showWaterfall && (
+                <div className="flex-1 flex flex-col overflow-hidden min-h-0">
+                    <div className="flex-1 relative bg-black/50 min-h-0">
+                        <div ref={waterfallContainerRef} className="relative w-full h-full">
+                            {!rendererReady && (
+                                <div className="absolute inset-0 flex items-center justify-center">
+                                    <div className="text-center space-y-2 opacity-30">
+                                        <div className="w-10 h-10 mx-auto rounded-full border-2 border-dashed border-zinc-600 flex items-center justify-center">
+                                            <div className="w-2 h-2 rounded-full bg-purple-500 animate-pulse" />
+                                        </div>
+                                        <p className="text-zinc-600 text-xs">Initializing...</p>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+
+                    <PianoKeyboard />
+                </div>
+            )}
         </div>
     )
 }
