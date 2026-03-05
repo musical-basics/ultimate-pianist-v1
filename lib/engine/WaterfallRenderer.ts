@@ -283,10 +283,10 @@ export class WaterfallRenderer {
 
             if (active) {
                 this.activeThisFrame[note.pitch] = 1
-                item.fill.alpha = 0.95
+                item.fill.alpha = fillFrac * 0.95  // 0 for soft (hollow) → 0.95 for loud (solid)
                 item.border.alpha = 1.0
             } else {
-                item.fill.alpha = 0.85
+                item.fill.alpha = fillFrac * 0.8
                 item.border.alpha = 0.6
             }
         }
