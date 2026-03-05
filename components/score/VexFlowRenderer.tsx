@@ -486,9 +486,11 @@ const VexFlowRendererComponent: React.FC<VexFlowRendererProps> = ({
                 const availableWidth = noteEndX - maxNoteStartX - 10 // 10px right margin
                 formatter.format(vfVoices, Math.max(availableWidth, 100))
 
-                // Post-format: reposition articulations based on resolved stem direction
+                // Post-format: reposition non-fermata articulations for multi-voice staves.
+                // Fermata positioning is now handled upstream in dreamflow (always ABOVE).
                 vfVoices.forEach(v => {
                     const isMulti = multiVoiceVoices.has(v)
+                    if (!isMulti) return // single-voice staves use VexFlow defaults
                     const tickables = v.getTickables()
                     for (const t of tickables) {
                         const sn = t as StaveNote
@@ -499,21 +501,11 @@ const VexFlowRendererComponent: React.FC<VexFlowRendererProps> = ({
                                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
                                 const mod = m as any
                                 if (mod.getCategory?.() === 'articulations' || mod.constructor?.name === 'Articulation') {
-                                    // Fermatas always go above the staff (position 3)
-                                    // VexFlow uses 'a@' prefix for fermata codes: a@a, a@u, a@s, etc.
-                                    const artType = mod.type ?? ''
-                                    const isFermata = typeof artType === 'string' && artType.startsWith('a@')
-
-                                    let pos: number
-                                    if (isFermata) {
-                                        pos = 3 // always above
-                                    } else if (isMulti) {
-                                        pos = stemDir === 1 ? 3 : 4
-                                    } else {
-                                        pos = stemDir === 1 ? 4 : 3
-                                    }
+                                    // Skip fermatas — handled upstream
+                                    if (mod.isFermata) continue
+                                    const pos = stemDir === 1 ? 3 : 4
                                     mod.setPosition(pos)
-                                    mod.setYShift(isFermata ? -2 : (pos === 4 ? 2 : -2))
+                                    mod.setYShift(pos === 4 ? 2 : -2)
                                 }
                             }
                         } catch { /* ignore */ }
