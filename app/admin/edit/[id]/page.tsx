@@ -530,92 +530,102 @@ export default function AdminEditor() {
             />
 
             <div className="flex-1 flex flex-col overflow-hidden">
-                <div className="flex items-center justify-between px-4 py-3 bg-zinc-900 border-b border-zinc-800 shrink-0">
-                    <div className="flex items-center gap-3">
-                        <Button variant="ghost" size="sm" onClick={() => router.push('/admin')} className="text-zinc-400 hover:text-white">
-                            <ArrowLeft className="w-4 h-4 mr-1" /> Back
-                        </Button>
-                        <input
-                            type="text" value={title} onChange={(e) => setTitle(e.target.value)}
-                            placeholder="Song title..."
-                            className="bg-transparent border-none text-white text-lg font-medium focus:outline-none placeholder:text-zinc-600 w-64"
-                        />
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                        <Button variant="outline" size="sm" onClick={() => audioInputRef.current?.click()} className={`text-xs ${config?.audio_url ? 'border-green-600 text-green-400' : 'border-zinc-700 text-zinc-400'}`}>
-                            <FileAudio className="w-3.5 h-3.5 mr-1" /> WAV
-                        </Button>
-                        <Button variant="outline" size="sm" onClick={() => xmlInputRef.current?.click()} className={`text-xs ${config?.xml_url ? 'border-green-600 text-green-400' : 'border-zinc-700 text-zinc-400'}`}>
-                            <FileMusic className="w-3.5 h-3.5 mr-1" /> XML
-                        </Button>
-                        <Button variant="outline" size="sm" onClick={() => midiInputRef.current?.click()} className={`text-xs ${config?.midi_url ? 'border-green-600 text-green-400' : 'border-zinc-700 text-zinc-400'}`}>
-                            <Music className="w-3.5 h-3.5 mr-1" /> MIDI
-                        </Button>
-
-                        <div className="w-px h-6 bg-zinc-700 mx-1" />
-
-                        {/* Transport */}
-                        <span className="font-mono text-xs text-zinc-400 w-12 text-right tabular-nums">
-                            {formatTime(displayTime)}
-                        </span>
-                        <div className="w-36">
-                            <Slider
-                                value={[displayTime]}
-                                min={0}
-                                max={duration || 100}
-                                step={0.1}
-                                onValueChange={(v) => handleSeek(v[0])}
-                                className="[&_[data-slot=slider-track]]:bg-zinc-700 [&_[data-slot=slider-range]]:bg-purple-500"
+                <div className="flex flex-col bg-zinc-900 border-b border-zinc-800 shrink-0">
+                    {/* Row 1: Navigation, Title, Files, Transport, Record */}
+                    <div className="flex items-center justify-between px-4 py-2">
+                        <div className="flex items-center gap-3">
+                            <Button variant="ghost" size="sm" onClick={() => router.push('/admin')} className="text-zinc-400 hover:text-white">
+                                <ArrowLeft className="w-4 h-4 mr-1" /> Back
+                            </Button>
+                            <input
+                                type="text" value={title} onChange={(e) => setTitle(e.target.value)}
+                                placeholder="Song title..."
+                                className="bg-transparent border-none text-white text-lg font-medium focus:outline-none placeholder:text-zinc-600 w-64"
                             />
                         </div>
-                        <span className="font-mono text-xs text-zinc-400 w-12 tabular-nums">
-                            {formatTime(duration)}
-                        </span>
 
-                        <Button variant="ghost" size="sm" onClick={() => handleSeek(Math.max(0, displayTime - 5))} className="text-zinc-400 h-8 px-1">
-                            <SkipBack className="w-3.5 h-3.5" />
-                        </Button>
-                        <Button size="sm" onClick={handlePlayPause} className="bg-purple-600 hover:bg-purple-700 text-white rounded-full w-8 h-8 p-0">
-                            {isPlaying ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5 ml-0.5" />}
-                        </Button>
-                        <Button variant="ghost" size="sm" onClick={handleStop} className="text-zinc-400 h-8 px-1">
-                            <Square className="w-3.5 h-3.5" />
-                        </Button>
+                        <div className="flex items-center gap-2">
+                            <Button variant="outline" size="sm" onClick={() => audioInputRef.current?.click()} className={`text-xs ${config?.audio_url ? 'border-green-600 text-green-400' : 'border-zinc-700 text-zinc-400'}`}>
+                                <FileAudio className="w-3.5 h-3.5 mr-1" /> WAV
+                            </Button>
+                            <Button variant="outline" size="sm" onClick={() => xmlInputRef.current?.click()} className={`text-xs ${config?.xml_url ? 'border-green-600 text-green-400' : 'border-zinc-700 text-zinc-400'}`}>
+                                <FileMusic className="w-3.5 h-3.5 mr-1" /> XML
+                            </Button>
+                            <Button variant="outline" size="sm" onClick={() => midiInputRef.current?.click()} className={`text-xs ${config?.midi_url ? 'border-green-600 text-green-400' : 'border-zinc-700 text-zinc-400'}`}>
+                                <Music className="w-3.5 h-3.5 mr-1" /> MIDI
+                            </Button>
 
-                        <Button size="sm" onClick={toggleRecordMode} className={`text-white ${isRecording ? 'bg-red-600 hover:bg-red-700 animate-pulse' : 'bg-zinc-700 hover:bg-zinc-600'}`}>
-                            ⏺ {isRecording ? `Rec (M${nextMeasure})` : 'Record'}
-                        </Button>
+                            <div className="w-px h-6 bg-zinc-700 mx-1" />
 
-                        <select
-                            value={musicFont}
-                            onChange={(e) => setFont(e.target.value)}
-                            className="text-xs px-2 py-1.5 rounded border bg-zinc-800 border-zinc-600 text-zinc-300 cursor-pointer hover:border-zinc-500"
-                        >
-                            <option value="Bravura">♪ Bravura</option>
-                            <option value="Gonville">♪ Gonville</option>
-                            <option value="Petaluma">♪ Petaluma</option>
-                            <option value="Academico">♪ Academico</option>
-                        </select>
+                            {/* Transport */}
+                            <span className="font-mono text-xs text-zinc-400 w-12 text-right tabular-nums">
+                                {formatTime(displayTime)}
+                            </span>
+                            <div className="w-36">
+                                <Slider
+                                    value={[displayTime]}
+                                    min={0}
+                                    max={duration || 100}
+                                    step={0.1}
+                                    onValueChange={(v) => handleSeek(v[0])}
+                                    className="[&_[data-slot=slider-track]]:bg-zinc-700 [&_[data-slot=slider-range]]:bg-purple-500"
+                                />
+                            </div>
+                            <span className="font-mono text-xs text-zinc-400 w-12 tabular-nums">
+                                {formatTime(duration)}
+                            </span>
 
-                        <ScoreControls
-                            revealMode={revealMode} darkMode={darkMode} highlightNote={highlightNote}
-                            glowEffect={glowEffect} popEffect={popEffect} jumpEffect={jumpEffect}
-                            isLocked={isLocked} showCursor={showCursor} isAdmin={true}
-                            onRevealModeChange={setRevealMode} onDarkModeToggle={() => setDarkMode(!darkMode)}
-                            onHighlightToggle={() => setHighlightNote(!highlightNote)} onGlowToggle={() => setGlowEffect(!glowEffect)}
-                            onPopToggle={() => setPopEffect(!popEffect)} onJumpToggle={() => setJumpEffect(!jumpEffect)}
-                            onLockToggle={() => setIsLocked(!isLocked)} onCursorToggle={() => setShowCursor(!showCursor)}
-                        />
+                            <Button variant="ghost" size="sm" onClick={() => handleSeek(Math.max(0, displayTime - 5))} className="text-zinc-400 h-8 px-1">
+                                <SkipBack className="w-3.5 h-3.5" />
+                            </Button>
+                            <Button size="sm" onClick={handlePlayPause} className="bg-purple-600 hover:bg-purple-700 text-white rounded-full w-8 h-8 p-0">
+                                {isPlaying ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5 ml-0.5" />}
+                            </Button>
+                            <Button variant="ghost" size="sm" onClick={handleStop} className="text-zinc-400 h-8 px-1">
+                                <Square className="w-3.5 h-3.5" />
+                            </Button>
 
-                        <div className="w-px h-6 bg-zinc-700 mx-1" />
+                            <div className="w-px h-6 bg-zinc-700 mx-1" />
 
-                        <Button size="sm" onClick={handleSave} disabled={saving} className="bg-green-600 hover:bg-green-700 text-white">
-                            <Save className="w-3.5 h-3.5 mr-1" /> {saving ? 'Saving...' : 'Save'}
-                        </Button>
-                        <Button size="sm" variant="outline" onClick={handleSaveAs} disabled={saving} className="border-zinc-600 text-zinc-300 hover:text-white">
-                            Save As
-                        </Button>
+                            <Button size="sm" onClick={toggleRecordMode} className={`text-white ${isRecording ? 'bg-red-600 hover:bg-red-700 animate-pulse' : 'bg-zinc-700 hover:bg-zinc-600'}`}>
+                                ⏺ {isRecording ? `Rec (M${nextMeasure})` : 'Record'}
+                            </Button>
+                        </div>
+                    </div>
+
+                    {/* Row 2: Font, ScoreControls, Save */}
+                    <div className="flex items-center justify-between px-4 py-1.5 border-t border-zinc-800/50">
+                        <div className="flex items-center gap-2">
+                            <select
+                                value={musicFont}
+                                onChange={(e) => setFont(e.target.value)}
+                                className="text-xs px-2 py-1.5 rounded border bg-zinc-800 border-zinc-600 text-zinc-300 cursor-pointer hover:border-zinc-500"
+                            >
+                                <option value="Bravura">♪ Bravura</option>
+                                <option value="Gonville">♪ Gonville</option>
+                                <option value="Petaluma">♪ Petaluma</option>
+                                <option value="Academico">♪ Academico</option>
+                            </select>
+
+                            <ScoreControls
+                                revealMode={revealMode} darkMode={darkMode} highlightNote={highlightNote}
+                                glowEffect={glowEffect} popEffect={popEffect} jumpEffect={jumpEffect}
+                                isLocked={isLocked} showCursor={showCursor} isAdmin={true}
+                                onRevealModeChange={setRevealMode} onDarkModeToggle={() => setDarkMode(!darkMode)}
+                                onHighlightToggle={() => setHighlightNote(!highlightNote)} onGlowToggle={() => setGlowEffect(!glowEffect)}
+                                onPopToggle={() => setPopEffect(!popEffect)} onJumpToggle={() => setJumpEffect(!jumpEffect)}
+                                onLockToggle={() => setIsLocked(!isLocked)} onCursorToggle={() => setShowCursor(!showCursor)}
+                            />
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                            <Button size="sm" onClick={handleSave} disabled={saving} className="bg-green-600 hover:bg-green-700 text-white">
+                                <Save className="w-3.5 h-3.5 mr-1" /> {saving ? 'Saving...' : 'Save'}
+                            </Button>
+                            <Button size="sm" variant="outline" onClick={handleSaveAs} disabled={saving} className="border-zinc-600 text-zinc-300 hover:text-white">
+                                Save As
+                            </Button>
+                        </div>
                     </div>
                 </div>
 
