@@ -2,7 +2,7 @@
  * WaterfallRenderer — PixiJS Canvas + Zero-Allocation Render Loop
  */
 
-import { Application, Graphics, Container } from 'pixi.js'
+import { Application, Graphics, Container, Sprite } from 'pixi.js'
 import type { NoteEvent, ParsedMidi } from '../types'
 import { NotePool } from './NotePool'
 import {
@@ -136,7 +136,7 @@ export class WaterfallRenderer {
 
         this.app.ticker.add(this.boundRenderFrame)
 
-        console.log('[SynthUI] WaterfallRenderer initialized (Graphics-based render loop)')
+        console.log('[SynthUI] WaterfallRenderer initialized (sprite-atlas render loop)')
     }
 
     private cacheKeyElements(): void {
@@ -216,6 +216,9 @@ export class WaterfallRenderer {
         this.activeThisFrame.fill(0)
         this.activeColorThisFrame.fill(null)
 
+        const storeState = useAppStore.getState()
+        const noteGlowOn = storeState.noteGlow
+
         const windowStart = time - 0.5
         const windowEnd = time + lookaheadSec
 
@@ -246,8 +249,8 @@ export class WaterfallRenderer {
 
             if ((noteTopY + noteHeight) < 0 || noteTopY > canvasH) continue
 
-            const g = this.notePool.acquire()
-            if (!g) break
+            const item = this.notePool.acquire()
+            if (!item) break
 
             const fullW = Math.round(this.keyW[note.pitch])
             const h = Math.max(Math.round(noteHeight), 12)
@@ -264,52 +267,54 @@ export class WaterfallRenderer {
             }
 
             // ── Width scaling by velocity (squared for dramatic contrast) ──
-            // White keys: 30%→100%, Black keys: 50%→100%
             const velClamped = Math.max(0, Math.min(127, note.velocity))
             const velT = velClamped <= 20 ? 0 : velClamped >= 100 ? 1 : (velClamped - 20) / 80
-            const velTSq = velT * velT // squared curve for more dramatic difference
+            const velTSq = velT * velT
             const minScale = isBlackKey(note.pitch) ? 0.5 : 0.3
             const widthScale = minScale + (1 - minScale) * velTSq
             const w = Math.max(4, Math.round(fullW * widthScale))
-            const baseX = Math.round(this.keyX[note.pitch]) + Math.round((fullW - w) / 2) // center on key
+            const baseX = Math.round(this.keyX[note.pitch]) + Math.round((fullW - w) / 2)
 
-            // Calculate inner border thickness based on velocity (squared)
-            const maxThickness = Math.min(w, h) / 2
-            // Maps velocity: soft → 1px thin outline, loud → full fill
-            const thickness = 1 + velTSq * (maxThickness - 1)
+            // ── Border thickness → discrete texture level (0-9) ──
+            const borderLevel = Math.round(velTSq * (this.notePool.getBorderLevels() - 1))
 
-            // Clear and redraw this Graphics object
-            g.clear()
-
-            // ── Active glow aura (toggleable) ──
-            if (active && useAppStore.getState().noteGlow) {
-                const glowPad = 4
-                g.roundRect(baseX - glowPad, noteTopY - glowPad, w + glowPad * 2, h + glowPad * 2, 6)
-                g.fill({ color: heatColor, alpha: 0.35 })
-                // Second softer outer glow
-                const outerPad = 8
-                g.roundRect(baseX - outerPad, noteTopY - outerPad, w + outerPad * 2, h + outerPad * 2, 8)
-                g.fill({ color: heatColor, alpha: 0.15 })
-            }
-
-            // Base fill: white for white keys, black for black keys
-            const isBlack = isBlackKey(note.pitch)
-            const baseFill = isBlack ? 0x000000 : 0xFFFFFF
-            g.roundRect(baseX, noteTopY, w, h, 4)
-            g.fill({ color: baseFill, alpha: 1.0 })
-
-            if (note.velocity >= 120) {
-                // Max velocity: completely fill with color
-                g.roundRect(baseX, noteTopY, w, h, 4)
-                g.fill({ color: heatColor, alpha: 1.0 })
+            // ── Glow sprite ──
+            const glowSprite = item.glow
+            if (active && noteGlowOn) {
+                const glowPad = 6
+                glowSprite.visible = true
+                glowSprite.tint = heatColor
+                glowSprite.x = baseX - glowPad
+                glowSprite.y = noteTopY - glowPad
+                glowSprite.width = w + glowPad * 2
+                glowSprite.height = h + glowPad * 2
             } else {
-                // Dynamic inner border at full opacity
-                g.roundRect(baseX, noteTopY, w, h, 4)
-                g.stroke({ color: heatColor, width: thickness, alignment: 1, alpha: 1.0 })
+                glowSprite.visible = false
             }
+
+            // ── Fill sprite (white/black base) ──
+            const fillSprite = item.fill
+            fillSprite.texture = this.notePool.getFillTexture(isBlackKey(note.pitch))
+            fillSprite.x = baseX
+            fillSprite.y = noteTopY
+            fillSprite.width = w
+            fillSprite.height = h
+
+            // ── Border sprite (tinted with velocity color) ──
+            const borderSprite = item.border
+            if (note.velocity >= 120) {
+                borderSprite.texture = this.notePool.getSolidFillTexture()
+            } else {
+                borderSprite.texture = this.notePool.getBorderTexture(borderLevel)
+            }
+            borderSprite.tint = heatColor
+            borderSprite.x = baseX
+            borderSprite.y = noteTopY
+            borderSprite.width = w
+            borderSprite.height = h
         }
 
-        const useVelColor = useAppStore.getState().velocityKeyColor
+        const useVelColor = storeState.velocityKeyColor
 
         for (let pitch = MIDI_MIN; pitch <= MIDI_MAX; pitch++) {
             const wasActive = this.activeLastFrame[pitch]
