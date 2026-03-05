@@ -252,8 +252,8 @@ const VexFlowRendererComponent: React.FC<VexFlowRendererProps> = ({
                             addArticulation(staveNote, artCode)
                         }
 
-                        // NOTE: Do NOT call staveNote.setAttribute('id', ...) — this corrupts
-                        // VexFlow's internal attrs.id, causing getSVGElement() to double-prefix
+                        // VexFlow auto-assigns internal IDs — no manual setAttribute needed.
+                        // Double-prefix bug (vf-vf-*) is fixed upstream in dreamflow/util.ts.
                         vfNotes.push(staveNote)
 
                         // Grace notes: attach to this main note
@@ -326,8 +326,7 @@ const VexFlowRendererComponent: React.FC<VexFlowRendererProps> = ({
                                 } catch { /* ignore */ }
                             }
 
-                            // Get SVG element using VexFlow's native method
-                            // getSVGElement() calls document.getElementById(prefix(attrs.id))
+                            // getSVGElement() is reliable now — double-prefix bug fixed in dreamflow
                             let element: HTMLElement | null = null
                             let pathsAndRects: HTMLElement[] | undefined
                             try {
