@@ -171,6 +171,17 @@ export default function LearnPlayback() {
         setDisplayTime(time)
     }
 
+    // ─── Spacebar → play/pause ───────────────────────────────────
+    useEffect(() => {
+        const onKeyDown = (e: KeyboardEvent) => {
+            const tag = (e.target as HTMLElement)?.tagName
+            if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return
+            if (e.code === 'Space') { e.preventDefault(); handlePlayPause() }
+        }
+        window.addEventListener('keydown', onKeyDown)
+        return () => window.removeEventListener('keydown', onKeyDown)
+    }, [isPlaying, handlePlayPause])
+
     const formatTime = (s: number) => {
         const m = Math.floor(s / 60)
         const sec = Math.floor(s % 60)
