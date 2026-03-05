@@ -84,7 +84,7 @@ export default function AdminEditor() {
                     console.log('[FONT DEBUG] DB returned music_font:', JSON.stringify(data.music_font), 'type:', typeof data.music_font)
                     if (data.music_font) {
                         // Delay applying saved font to let VexFlow fonts finish downloading first
-                        setTimeout(() => setMusicFont(data.music_font!), 5000)
+                        setTimeout(() => setMusicFont(data.music_font!), 2000)
                     }
                 }
             } catch (err) {
