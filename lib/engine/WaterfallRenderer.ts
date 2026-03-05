@@ -256,29 +256,38 @@ export class WaterfallRenderer {
             item.container.x = active ? baseX - 1 : baseX
             item.container.y = noteTopY
 
-            // Size both sprites
+            // Border sprite: always full note size
             const finalW = active ? w + 2 : w
-            if (Math.round(item.fill.width) !== finalW) item.fill.width = finalW
-            if (Math.round(item.fill.height) !== h) item.fill.height = h
-            if (Math.round(item.border.width) !== finalW) item.border.width = finalW
-            if (Math.round(item.border.height) !== h) item.border.height = h
+            item.border.x = 0
+            item.border.y = 0
+            item.border.width = finalW
+            item.border.height = h
 
-            // Tint both sprites with velocity rainbow color
+            // Tint both with velocity rainbow color
             item.fill.tint = color
             item.border.tint = color
 
-            // Density: fill alpha varies by velocity² (soft=hollow, loud=solid)
-            // Squared curve makes the difference much more dramatic
-            // Border stays visible so note outlines are always clear
-            const vNorm = note.velocity / 127 // 0..1
-            const density = vNorm * vNorm     // squared: soft→very transparent, loud→solid
+            // Inner border thickness: fill is inset inward based on velocity
+            // Soft (≤20) → max inset (hollow outline), Loud (≥100) → 0 inset (fully filled)
+            const velClamped = Math.max(0, Math.min(127, note.velocity))
+            const fillFrac = velClamped <= 20 ? 0
+                : velClamped >= 100 ? 1
+                    : (velClamped - 20) / (100 - 20) // 0..1
+            const maxInset = Math.min(8, finalW * 0.4) // cap at 40% of width
+            const inset = Math.round(maxInset * (1 - fillFrac))
+
+            item.fill.x = inset
+            item.fill.y = inset
+            item.fill.width = Math.max(1, finalW - inset * 2)
+            item.fill.height = Math.max(1, h - inset * 2)
+
             if (active) {
                 this.activeThisFrame[note.pitch] = 1
-                item.fill.alpha = Math.max(0.03, density)
+                item.fill.alpha = 0.95
                 item.border.alpha = 1.0
             } else {
-                item.fill.alpha = Math.max(0.03, density * 0.7)
-                item.border.alpha = 0.5
+                item.fill.alpha = 0.85
+                item.border.alpha = 0.6
             }
         }
 
