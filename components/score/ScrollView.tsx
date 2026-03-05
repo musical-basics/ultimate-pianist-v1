@@ -177,9 +177,12 @@ const ScrollViewComponent: React.FC<ScrollViewProps> = ({
             )
             extraGroups.forEach(el => {
                 const htmlEl = el as HTMLElement
-                // Use the RIGHT edge so ties/slurs spanning ahead are only
-                // revealed when the cursor reaches their end point
-                beamTieEls.push({ el: htmlEl, x: htmlEl.getBoundingClientRect().right - cLeft })
+                const rect = htmlEl.getBoundingClientRect()
+                const cls = htmlEl.getAttribute('class') || ''
+                // Ties/slurs/curves span ahead → use RIGHT edge (wait for cursor to pass end)
+                // Beams/stems/articulations are structural → use LEFT edge (appear with first note)
+                const isTieOrCurve = cls.includes('vf-stavetie') || cls.includes('vf-curve')
+                beamTieEls.push({ el: htmlEl, x: (isTieOrCurve ? rect.right : rect.left) - cLeft })
             })
 
             // Also collect bare <path>/<line> elements at the SVG top level
@@ -188,6 +191,7 @@ const ScrollViewComponent: React.FC<ScrollViewProps> = ({
             if (svgEl) {
                 svgEl.querySelectorAll(':scope > path, :scope > line, :scope > g:not([class]) > path').forEach(el => {
                     const htmlEl = el as HTMLElement
+                    // Bare paths at SVG top level are likely curves/slurs → use RIGHT edge
                     beamTieEls.push({ el: htmlEl, x: htmlEl.getBoundingClientRect().right - cLeft })
                 })
             }
