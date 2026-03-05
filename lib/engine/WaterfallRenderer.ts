@@ -278,13 +278,13 @@ export class WaterfallRenderer {
             g.fill({ color: baseFill, alpha: 1.0 })
 
             if (note.velocity >= 120) {
-                // Max velocity: completely fill with color at 70% opacity (blends with base)
+                // Max velocity: completely fill with color
                 g.roundRect(baseX, noteTopY, w, h, 4)
-                g.fill({ color: heatColor, alpha: active ? 0.7 : 0.6 })
+                g.fill({ color: heatColor, alpha: 1.0 })
             } else {
-                // Dynamic inner border at 70% opacity: blends with white/black base
+                // Dynamic inner border at full opacity
                 g.roundRect(baseX, noteTopY, w, h, 4)
-                g.stroke({ color: heatColor, width: thickness, alignment: 1, alpha: active ? 0.7 : 0.6 })
+                g.stroke({ color: heatColor, width: thickness, alignment: 1, alpha: 1.0 })
             }
         }
 
