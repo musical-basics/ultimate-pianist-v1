@@ -59,16 +59,19 @@ const VexFlowRendererComponent: React.FC<VexFlowRendererProps> = ({
     useEffect(() => {
         console.log('[FONT DEBUG] Preloading all VexFlow fonts...')
         VexFlow.loadFonts('Bravura', 'Gonville', 'Petaluma', 'Academico')
-            .then(() => document.fonts.ready)  // Wait for browser to fully register fonts
             .then(() => {
-                const fontNames = ['Bravura', 'Gonville', 'Petaluma', 'Academico']
-                for (const f of fontNames) {
-                    const available = document.fonts.check(`30px "${f}"`)
-                    console.log(`[FONT DEBUG] Font "${f}" available:`, available)
-                }
+                // FORCE the browser to download the fonts before rendering the SVG
+                return Promise.all([
+                    document.fonts.load('30px "Bravura"'),
+                    document.fonts.load('30px "Gonville"'),
+                    document.fonts.load('30px "Petaluma"'),
+                    document.fonts.load('30px "Academico"')
+                ]);
+            })
+            .then(() => {
                 setFontsLoaded(true)
-            }).catch(() => {
-                console.warn('[VEXFLOW] Font preloading failed, using defaults')
+            }).catch((err: unknown) => {
+                console.warn('[VEXFLOW] Font preloading failed, using defaults', err)
                 setFontsLoaded(true)
             })
     }, [])
@@ -76,7 +79,7 @@ const VexFlowRendererComponent: React.FC<VexFlowRendererProps> = ({
     const renderScore = useCallback(() => {
         if (!score || !containerRef.current || score.measures.length === 0 || !fontsLoaded) return
         // Set the active font synchronously BEFORE creating any VexFlow objects
-        VexFlow.setFonts(musicFont)
+        VexFlow.setFonts(musicFont, 'Academico')
         const fontAvailable = document.fonts.check(`30px "${musicFont}"`)
         console.log('[FONT DEBUG] renderScore: musicFont =', JSON.stringify(musicFont), 'fontAvailable:', fontAvailable, 'getFonts():', VexFlow.getFonts())
 
