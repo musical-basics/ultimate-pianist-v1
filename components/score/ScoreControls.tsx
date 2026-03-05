@@ -18,6 +18,7 @@ import {
     Monitor,
     Crosshair,
     Play,
+    Palette,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
@@ -66,6 +67,8 @@ export const ScoreControls: React.FC<ScoreControlsProps> = ({
 }) => {
     const previewEffects = useAppStore((s) => s.previewEffects)
     const setPreviewEffects = useAppStore((s) => s.setPreviewEffects)
+    const dynamicColor = useAppStore((s) => s.dynamicColor)
+    const setDynamicColor = useAppStore((s) => s.setDynamicColor)
     const bg = darkMode ? 'bg-zinc-800/80 border-zinc-700' : 'bg-white/80 border-zinc-200'
 
     return (
@@ -112,6 +115,10 @@ export const ScoreControls: React.FC<ScoreControlsProps> = ({
             <Button variant="ghost" size="sm" onClick={onJumpToggle} title="Jump effect (bounce up)"
                 className={cn('h-7 px-2', jumpEffect ? 'text-pink-400' : darkMode ? 'text-zinc-500' : 'text-zinc-400')}>
                 <ArrowUpFromDot className="w-3.5 h-3.5" />
+            </Button>
+            <Button variant="ghost" size="sm" onClick={() => setDynamicColor(!dynamicColor)} title={dynamicColor ? 'Dynamic colors ON — using MIDI velocity' : 'Dynamic colors OFF — using default green'}
+                className={cn('h-7 px-2', dynamicColor ? 'text-orange-400' : darkMode ? 'text-zinc-500' : 'text-zinc-400')}>
+                <Palette className="w-3.5 h-3.5" />
             </Button>
 
             {/* Preview toggle — admin only */}

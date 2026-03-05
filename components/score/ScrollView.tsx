@@ -345,6 +345,7 @@ const ScrollViewComponent: React.FC<ScrollViewProps> = ({
     // ─── Dark Mode & Effects coloring invalidation ────────────────────
     const previewEffects = useAppStore((s) => s.previewEffects)
     const parsedMidi = useAppStore((s) => s.parsedMidi)
+    const dynamicColor = useAppStore((s) => s.dynamicColor)
 
     // ─── Bake MIDI velocity/duration onto NoteData ────────────────────
     useEffect(() => {
@@ -363,7 +364,7 @@ const ScrollViewComponent: React.FC<ScrollViewProps> = ({
 
         // Invalidate isActive state so notes re-render immediately when toggling settings
         noteMap.current.forEach(notes => notes.forEach(n => { n.isActive = undefined }))
-    }, [darkMode, isLoaded, highlightNote, glowEffect, popEffect, jumpEffect, previewEffects])
+    }, [darkMode, isLoaded, highlightNote, glowEffect, popEffect, jumpEffect, previewEffects, dynamicColor])
 
     // ─── Cursor Positioning (rewritten for VexFlow maps) ───────────
     const updateCursorPosition = useCallback((audioTime: number) => {
@@ -525,8 +526,9 @@ const ScrollViewComponent: React.FC<ScrollViewProps> = ({
                         let tFill = defaultColor, tFilter = 'none', tTransform = 'scale(1) translateY(0)'
 
                         if (isActive) {
-                            const dynColor = note.velocity !== undefined ? velocityToCSS(note.velocity) : fallbackHighlight
-                            const dynShadow = note.velocity !== undefined ? velocityToCSS(note.velocity) : fallbackShadow
+                            const useDynamic = dynamicColor && note.velocity !== undefined
+                            const dynColor = useDynamic ? velocityToCSS(note.velocity!) : fallbackHighlight
+                            const dynShadow = useDynamic ? velocityToCSS(note.velocity!) : fallbackShadow
                             if (highlightNote) tFill = dynColor
                             if (glowEffect) tFilter = `drop-shadow(0 0 6px ${dynShadow})`
                             tTransform = `scale(${popEffect ? 1.4 : 1}) translateY(${jumpEffect ? -10 : 0}px)`
@@ -543,7 +545,7 @@ const ScrollViewComponent: React.FC<ScrollViewProps> = ({
             }
 
         } catch { /* ignore */ }
-    }, [findCurrentPosition, isLoaded, measureXMap, revealMode, popEffect, jumpEffect, glowEffect, darkMode, highlightNote, cursorPosition, isLocked, curtainLookahead, showCursor, isAdmin, onMeasureChange, previewEffects])
+    }, [findCurrentPosition, isLoaded, measureXMap, revealMode, popEffect, jumpEffect, glowEffect, darkMode, highlightNote, cursorPosition, isLocked, curtainLookahead, showCursor, isAdmin, onMeasureChange, previewEffects, dynamicColor])
 
     // ─── Animation Loop (unchanged) ────────────────────────────────
     useEffect(() => {

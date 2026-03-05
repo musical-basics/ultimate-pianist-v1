@@ -34,6 +34,7 @@ interface AppStore {
     popEffect: boolean
     jumpEffect: boolean
     previewEffects: boolean
+    dynamicColor: boolean
     isLocked: boolean
     cursorPosition: number
     curtainLookahead: number
@@ -69,6 +70,7 @@ interface AppStore {
     setPopEffect: (pop: boolean) => void
     setJumpEffect: (jump: boolean) => void
     setPreviewEffects: (preview: boolean) => void
+    setDynamicColor: (dynamic: boolean) => void
     setIsLocked: (locked: boolean) => void
     setCursorPosition: (pos: number) => void
     setCurtainLookahead: (lookahead: number) => void
@@ -109,6 +111,7 @@ export const useAppStore = create<AppStore>()(
             popEffect: false,
             jumpEffect: true,
             previewEffects: false,
+            dynamicColor: true,
             isLocked: true,
             cursorPosition: 0.2,
             curtainLookahead: 0.25,
@@ -155,6 +158,7 @@ export const useAppStore = create<AppStore>()(
             setPopEffect: (popEffect) => set({ popEffect }),
             setJumpEffect: (jumpEffect) => set({ jumpEffect }),
             setPreviewEffects: (previewEffects) => set({ previewEffects }),
+            setDynamicColor: (dynamicColor) => set({ dynamicColor }),
             setIsLocked: (isLocked) => set({ isLocked }),
             setCursorPosition: (cursorPosition) => set({ cursorPosition }),
             setCurtainLookahead: (curtainLookahead) => set({ curtainLookahead }),
@@ -178,6 +182,7 @@ export const useAppStore = create<AppStore>()(
                 popEffect: state.popEffect,
                 jumpEffect: state.jumpEffect,
                 previewEffects: state.previewEffects,
+                dynamicColor: state.dynamicColor,
                 showCursor: state.showCursor,
                 showScore: state.showScore,
                 showWaterfall: state.showWaterfall,
