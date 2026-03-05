@@ -82,7 +82,7 @@ export default function AdminEditor() {
                     if (data.is_level2) setIsLevel2Mode(data.is_level2)
                     if (data.subdivision) setSubdivision(data.subdivision)
                     console.log('[FONT DEBUG] DB returned music_font:', JSON.stringify(data.music_font), 'type:', typeof data.music_font)
-                    if (data.music_font && data.music_font !== 'Bravura') {
+                    if (data.music_font) {
                         // Delay applying saved font to let VexFlow fonts finish downloading first
                         setTimeout(() => setMusicFont(data.music_font!), 5000)
                     }
