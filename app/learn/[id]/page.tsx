@@ -7,7 +7,7 @@
 import * as React from 'react'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import { ArrowLeft, Play, Pause, Square, SkipBack, Music2 } from 'lucide-react'
+import { ArrowLeft, Play, Pause, Square, SkipBack, Music2, Palette } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Slider } from '@/components/ui/slider'
 import { SplitScreenLayout } from '@/components/layout/SplitScreenLayout'
@@ -46,6 +46,8 @@ export default function LearnPlayback() {
     const rightHandActive = useAppStore((s) => s.rightHandActive)
     const toggleLeftHand = useAppStore((s) => s.toggleLeftHand)
     const toggleRightHand = useAppStore((s) => s.toggleRightHand)
+    const velocityKeyColor = useAppStore((s) => s.velocityKeyColor)
+    const setVelocityKeyColor = useAppStore((s) => s.setVelocityKeyColor)
 
     // ─── 2s loading overlay: fires on mount AND every tab-switch-back ──
     useEffect(() => {
@@ -297,6 +299,15 @@ export default function LearnPlayback() {
                         className={`text-xs rounded-full px-3 h-7 ${rightHandActive ? 'bg-green-600 border-green-600 text-white' : 'border-zinc-700 text-zinc-400'}`}
                     >
                         R
+                    </Button>
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setVelocityKeyColor(!velocityKeyColor)}
+                        title={velocityKeyColor ? 'Key color: Velocity' : 'Key color: Purple'}
+                        className={`text-xs rounded-full px-3 h-7 ${velocityKeyColor ? 'bg-orange-600 border-orange-600 text-white' : 'border-zinc-700 text-zinc-400'}`}
+                    >
+                        <Palette className="w-3 h-3" />
                     </Button>
                     <div className="flex items-center gap-1">
                         <span className="text-xs text-zinc-500">Tempo</span>

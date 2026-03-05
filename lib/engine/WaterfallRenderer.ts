@@ -13,6 +13,7 @@ import {
     MIDI_MAX,
 } from './pianoMetrics'
 import type { PlaybackManager } from './PlaybackManager'
+import { useAppStore } from '../store'
 
 /**
  * Smooth velocity → rainbow color.
@@ -308,6 +309,8 @@ export class WaterfallRenderer {
             }
         }
 
+        const useVelColor = useAppStore.getState().velocityKeyColor
+
         for (let pitch = MIDI_MIN; pitch <= MIDI_MAX; pitch++) {
             const wasActive = this.activeLastFrame[pitch]
             const isActive = this.activeThisFrame[pitch]
@@ -322,12 +325,10 @@ export class WaterfallRenderer {
                 const el = this.keyElements[pitch]
                 if (el) {
                     el.dataset.active = 'true'
-                    el.style.backgroundColor = this.activeColorThisFrame[pitch] || ''
+                    if (useVelColor) {
+                        el.style.backgroundColor = this.activeColorThisFrame[pitch] || ''
+                    }
                 }
-            } else if (isActive && this.activeColorThisFrame[pitch]) {
-                // Update color if velocity changes while held
-                const el = this.keyElements[pitch]
-                if (el) el.style.backgroundColor = this.activeColorThisFrame[pitch] || ''
             }
         }
 
