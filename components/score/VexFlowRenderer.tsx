@@ -552,44 +552,25 @@ const VexFlowRendererComponent: React.FC<VexFlowRendererProps> = ({
                 vfVoices.forEach(v => v.draw(context, voiceStaveMap.get(v)!))
                 measureBeams.forEach(b => b.setContext(context).draw())
 
-                // Draw tuplets, then center the "3" between first and last tuplet note
+                // Draw tuplets — centering is now handled upstream by dreamflow.
+                // We still apply scale(0.65) to reduce the visual size of the number.
                 if (containerRef.current) {
                     const svgEl = containerRef.current.querySelector('svg')
-                    vfTuplets.forEach((t, tIdx) => {
+                    vfTuplets.forEach(t => {
                         try {
-                            const tupletData = measureTuplets[tIdx]
-                            let centerX = 0
-                            if (tupletData && tupletData.notes.length >= 3) {
-                                // Visual center of middle note: absoluteX + half of xShift
-                                const midIdx = Math.floor(tupletData.notes.length / 2)
-                                const midNote = tupletData.notes[midIdx]
-                                const xShift = (midNote as any).getXShift?.() ?? 0
-                                centerX = midNote.getAbsoluteX() + xShift / 2
-                            } else if (tupletData && tupletData.notes.length > 0) {
-                                const first = tupletData.notes[0]
-                                const last = tupletData.notes[tupletData.notes.length - 1]
-                                const fShift = (first as any).getXShift?.() ?? 0
-                                const lShift = (last as any).getXShift?.() ?? 0
-                                centerX = ((first.getAbsoluteX() + fShift / 2) + (last.getAbsoluteX() + lShift / 2)) / 2
-                            }
-
                             const textCountBefore = svgEl ? svgEl.querySelectorAll('text').length : 0
                             t.setContext(context).draw()
                             if (svgEl) {
                                 const allTexts = svgEl.querySelectorAll('text')
                                 for (let i = textCountBefore; i < allTexts.length; i++) {
                                     const textEl = allTexts[i]
-                                    const currentY = parseFloat(textEl.getAttribute('y') || '0')
-
+                                    const origX = parseFloat(textEl.getAttribute('x') || '0')
+                                    const origY = parseFloat(textEl.getAttribute('y') || '0')
+                                    // Scale down the tuplet number and adjust coordinates for the transform
                                     textEl.setAttribute('transform', `scale(0.65)`)
-                                    if (centerX > 0) {
-                                        textEl.setAttribute('x', String(centerX / 0.65))
-                                        textEl.setAttribute('text-anchor', 'middle')
-                                    } else {
-                                        const origX = parseFloat(textEl.getAttribute('x') || '0')
-                                        textEl.setAttribute('x', String(origX / 0.65))
-                                    }
-                                    textEl.setAttribute('y', String((currentY + 20) / 0.65))
+                                    textEl.setAttribute('x', String(origX / 0.65))
+                                    textEl.setAttribute('y', String((origY + 20) / 0.65))
+                                    textEl.setAttribute('text-anchor', 'middle')
                                 }
                             }
                         } catch { /* ignore */ }
