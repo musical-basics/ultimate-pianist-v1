@@ -658,18 +658,14 @@ const VexFlowRendererComponent: React.FC<VexFlowRendererProps> = ({
                     if (!note.element) { missingCount++; continue }
                     populatedCount++
 
-                    // Configure the <g> group for CSS transforms so stems don't detach
-                    // Skip for grace notes — fill-box is too wide and causes visual fly-in
-                    if (!note.hasGrace) {
-                        note.element.style.transformBox = 'fill-box'
-                        note.element.style.transformOrigin = 'center center'
-                    }
-
-                    // Grace notes: VexFlow v5 doesn't create CSS class wrappers for grace
-                    // note groups. Use data-level hasGrace flag instead of DOM queries.
-                    // CSS transform transition causes grace notes to 'fly in' when revealed.
-                    if (!note.hasGrace) {
-                        note.element.style.transition = 'transform 0.1s ease-out, filter 0.1s'
+                    // Target the inner note-core group for CSS transforms.
+                    // This group only contains structural components (stem, noteheads, flag),
+                    // not modifiers (grace notes, articulations), preventing fill-box bloat.
+                    const coreGroup = note.element.querySelector('.vf-note-core') as HTMLElement
+                    if (coreGroup) {
+                        coreGroup.style.transformBox = 'fill-box'
+                        coreGroup.style.transformOrigin = 'center center'
+                        coreGroup.style.transition = 'transform 0.1s ease-out, filter 0.1s'
                     }
 
                     if (note.pathsAndRects) {
