@@ -624,14 +624,18 @@ const VexFlowRendererComponent: React.FC<VexFlowRendererProps> = ({
                     if (!note.element) { missingCount++; continue }
                     populatedCount++
 
-                    // Target the inner note-core group for CSS transforms.
-                    // This group only contains structural components (stem, noteheads, flag),
-                    // not modifiers (grace notes, articulations), preventing fill-box bloat.
+                    // Set CSS transform properties on both the parent element and note-core group.
+                    // The parent gets transforms/filter from ScrollView effects (scale, translateY, glow).
+                    // The note-core child isolates structural geometry from modifiers (grace notes).
+                    // hasGrace check in ScrollView already prevents pop/jump for grace note cases.
+                    note.element.style.transformBox = 'fill-box'
+                    note.element.style.transformOrigin = 'center center'
+                    note.element.style.transition = 'transform 0.1s ease-out, filter 0.1s'
+
                     const coreGroup = note.element.querySelector('.vf-note-core') as HTMLElement
                     if (coreGroup) {
                         coreGroup.style.transformBox = 'fill-box'
                         coreGroup.style.transformOrigin = 'center center'
-                        coreGroup.style.transition = 'transform 0.1s ease-out, filter 0.1s'
                     }
 
                     if (note.pathsAndRects) {
