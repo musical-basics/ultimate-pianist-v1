@@ -660,8 +660,11 @@ const VexFlowRendererComponent: React.FC<VexFlowRendererProps> = ({
                     populatedCount++
 
                     // Configure the <g> group for CSS transforms so stems don't detach
-                    note.element.style.transformBox = 'fill-box'
-                    note.element.style.transformOrigin = 'center center'
+                    // Skip for grace notes — fill-box is too wide and causes visual fly-in
+                    if (!note.hasGrace) {
+                        note.element.style.transformBox = 'fill-box'
+                        note.element.style.transformOrigin = 'center center'
+                    }
 
                     // Grace notes: VexFlow v5 doesn't create CSS class wrappers for grace
                     // note groups. Use data-level hasGrace flag instead of DOM queries.
