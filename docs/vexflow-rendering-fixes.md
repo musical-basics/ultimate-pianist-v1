@@ -140,3 +140,43 @@ formatter.format(vfVoices, Math.max(availableWidth, 100))
 1. **Synchronized note start positions** across all staves
 2. **All voices formatted together** (not per-stave)
 3. **Tight width calculation** using actual stave geometry, not hardcoded values
+
+---
+
+## 7. Font Persistence — Race Condition on Page Refresh
+
+**Problem**: Saving a non-default font (e.g., Gonville) and refreshing the page would render the score in the *wrong* font. There was a consistent off-by-one shift — saving Gonville (#2) yielded Petaluma (#3), saving Petaluma (#3) yielded Academico (#4).
+
+**Root Cause (Two-Part)**:
+
+### Part A: `document.fonts.ready` lies
+
+`VexFlowRenderer.tsx` preloaded fonts via `VexFlow.loadFonts(...)` then awaited `document.fonts.ready`. That promise resolves when all fonts *currently referenced in the DOM* are loaded — but since the VexFlow container is empty until `fontsLoaded = true`, the browser says "I'm ready!" immediately. When VexFlow renders the SVG with a fallback stack like `font-family="Gonville, Petaluma, Academico, Bravura"`, the browser hasn't actually downloaded Gonville yet, so it falls through to the next font in the stack (Petaluma).
+
+**Fix**: Replace `document.fonts.ready` with explicit `document.fonts.load()` calls that force the browser to actually fetch each font file:
+
+```typescript
+Promise.all([
+    document.fonts.load('30px "Bravura"'),
+    document.fonts.load('30px "Gonville"'),
+    document.fonts.load('30px "Petaluma"'),
+    document.fonts.load('30px "Academico"')
+])
+```
+
+### Part B: VexFlow ignores your "default" — it loads whatever it has
+
+The initial state was `useState('Bravura')`, which called `VexFlow.setFonts('Bravura')` on the very first render. But **VexFlow does not care what you tell it to load initially** — it loads whatever font it has available internally, which is NOT Bravura. So the first render used VexFlow's actual internal default (not Bravura), but React's state already said `musicFont = 'Bravura'`. When the 5-second delayed `setMusicFont(data.music_font)` fired with `'Bravura'`, React saw "state is already `'Bravura'`" and **did not re-render**. The saved font never got applied.
+
+**Fix**: Initialize `musicFont` as an empty string (`useState('')`) and only call `VexFlow.setFonts()` when the font is explicitly set. This way:
+1. First render uses VexFlow's true internal default (no override)
+2. After 5 seconds, `setMusicFont('Bravura')` fires → state changes from `''` to `'Bravura'` → triggers re-render → font loads correctly
+
+### Final Working Solution
+
+| File | Change |
+|------|--------|
+| [VexFlowRenderer.tsx](file:///Users/lionelyu/Documents/New%20Version/ultimate-pianist-vex/components/score/VexFlowRenderer.tsx) | `document.fonts.ready` → explicit `document.fonts.load()` per font; default prop `''` instead of `'Bravura'`; guard `setFonts()` behind `if (musicFont)` |
+| [page.tsx](file:///Users/lionelyu/Documents/New%20Version/ultimate-pianist-vex/app/admin/edit/%5Bid%5D/page.tsx) | `useState('')` instead of `useState('Bravura')`; delay `setMusicFont(data.music_font)` by 5 seconds via `setTimeout` |
+
+**Key Lesson**: VexFlow's font system has two layers — VexFlow's internal font registry (populated by `loadFonts`) and the browser's font cache (populated by actual HTTP downloads). Both must be ready before rendering. Never assume a font is "available" just because you told VexFlow to load it. And never hardcode a default that masks a state change — if React thinks the state hasn't changed, it won't re-render.
