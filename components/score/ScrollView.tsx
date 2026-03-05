@@ -181,6 +181,17 @@ const ScrollViewComponent: React.FC<ScrollViewProps> = ({
                 // revealed when the cursor reaches their end point
                 beamTieEls.push({ el: htmlEl, x: htmlEl.getBoundingClientRect().right - cLeft })
             })
+
+            // Also collect bare <path>/<line> elements at the SVG top level
+            // that aren't inside .vf-stavenote or .vf-stave groups (orphaned curves/slurs)
+            const svgEl = containerRef.current.querySelector('svg')
+            if (svgEl) {
+                svgEl.querySelectorAll(':scope > path, :scope > line, :scope > g:not([class]) > path').forEach(el => {
+                    const htmlEl = el as HTMLElement
+                    beamTieEls.push({ el: htmlEl, x: htmlEl.getBoundingClientRect().right - cLeft })
+                })
+            }
+
             beamTieElementsRef.current = beamTieEls
             console.log(`[ScrollView] Collected ${beamTieEls.length} beam/tie elements for reveal`)
             result.noteMap.forEach((notes) => {
@@ -491,8 +502,8 @@ const ScrollViewComponent: React.FC<ScrollViewProps> = ({
                     if (!note.element) return
                     if (note.isRest) return  // FIX: Don't pop or highlight rests!
 
-                    const lookahead = 0.04
-                    const noteEndThreshold = note.timestamp + 0.01
+                    const lookahead = 0.08
+                    const noteEndThreshold = note.timestamp + 0.06
                     const isActive = (globalProgress <= noteEndThreshold && globalProgress >= note.timestamp - lookahead)
 
                     if (note.isActive !== isActive) {
@@ -503,10 +514,6 @@ const ScrollViewComponent: React.FC<ScrollViewProps> = ({
                             if (highlightNote) tFill = highlightColor
                             if (glowEffect) tFilter = `drop-shadow(0 0 6px ${shadowColor})`
                             tTransform = `scale(${popEffect ? 1.4 : 1}) translateY(${jumpEffect ? -10 : 0}px)`
-                            // Debug: log once per active note per measure change
-                            if (Math.random() < 0.05) {
-                                console.log(`[EFFECTS] note.timestamp=${note.timestamp.toFixed(3)} globalProgress=${globalProgress.toFixed(3)} highlightNote=${highlightNote} pathCount=${note.pathsAndRects?.length} elementTag=${note.element?.tagName}`)
-                            }
                         }
 
                         applyColor(note.element, tFill, note.pathsAndRects)
