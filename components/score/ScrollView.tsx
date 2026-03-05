@@ -53,6 +53,8 @@ const ScrollViewComponent: React.FC<ScrollViewProps> = ({
     const measureContentMap = useRef<Map<number, HTMLElement[]>>(new Map())
     const staffLinesRef = useRef<HTMLElement[]>([])
     const allSymbolsRef = useRef<HTMLElement[]>([])
+    // Beams & ties are separate SVG groups — need their own reveal handling
+    const beamTieElementsRef = useRef<{ el: HTMLElement, x: number, isRevealed?: boolean }[]>([])
 
     const lastMeasureIndexRef = useRef<number>(-1)
     const prevRevealModeRef = useRef<'OFF' | 'NOTE' | 'CURTAIN'>('OFF')
@@ -166,6 +168,18 @@ const ScrollViewComponent: React.FC<ScrollViewProps> = ({
         if (containerRef.current) {
             const cLeft = containerRef.current.getBoundingClientRect().left
             let populatedCount = 0
+
+            // Collect beam & tie elements for NOTE reveal (they're outside .vf-stavenote groups)
+            const beamTieEls: { el: HTMLElement, x: number, isRevealed?: boolean }[] = []
+            const beamsAndTies = containerRef.current.querySelectorAll('.vf-beam, .vf-stavetie, .vf-curve')
+            beamsAndTies.forEach(el => {
+                const htmlEl = el as HTMLElement
+                const rect = htmlEl.getBoundingClientRect()
+                // Use the LEFT edge of the beam/tie as its reveal position
+                beamTieEls.push({ el: htmlEl, x: rect.left - cLeft })
+            })
+            beamTieElementsRef.current = beamTieEls
+            console.log(`[ScrollView] Collected ${beamTieEls.length} beam/tie elements for reveal`)
             result.noteMap.forEach((notes) => {
                 for (const note of notes) {
                     if (note.element) {
@@ -183,12 +197,16 @@ const ScrollViewComponent: React.FC<ScrollViewProps> = ({
         // we need to hide all the newly-created note elements (the useEffect already fired
         // before elements existed, so those opacity sets were no-ops)
         if (revealModeRef.current === 'NOTE') {
-            console.log('[ScrollView] NOTE mode active at render complete — hiding all notes')
+            console.log('[ScrollView] NOTE mode active at render complete — hiding all notes + beams/ties')
             result.noteMap.forEach(notes => {
                 notes.forEach(n => {
                     if (n.element) n.element.style.opacity = '0'
                     n.isRevealed = false
                 })
+            })
+            beamTieElementsRef.current.forEach(bt => {
+                bt.el.style.opacity = '0'
+                bt.isRevealed = false
             })
             lastMeasureIndexRef.current = -1
         }
@@ -273,18 +291,27 @@ const ScrollViewComponent: React.FC<ScrollViewProps> = ({
             noteMap.current.forEach(notes => {
                 notes.forEach(n => {
                     if (n.element) n.element.style.opacity = '1'
-                    n.isRevealed = undefined // Force re-eval if we toggle NOTE mode again
+                    n.isRevealed = undefined
                 })
+            })
+            // Restore beams/ties
+            beamTieElementsRef.current.forEach(bt => {
+                bt.el.style.opacity = '1'
+                bt.isRevealed = undefined
             })
         }
 
-        // When entering NOTE mode: hide all notes initially
+        // When entering NOTE mode: hide all notes + beams/ties initially
         if (revealMode === 'NOTE') {
             noteMap.current.forEach(notes => {
                 notes.forEach(n => {
                     if (n.element) n.element.style.opacity = '0'
                     n.isRevealed = false
                 })
+            })
+            beamTieElementsRef.current.forEach(bt => {
+                bt.el.style.opacity = '0'
+                bt.isRevealed = false
             })
             lastMeasureIndexRef.current = -1
         }
@@ -394,7 +421,6 @@ const ScrollViewComponent: React.FC<ScrollViewProps> = ({
                     for (const n of notes) {
                         if (!n.element) { noElementCount++; continue }
                         if (n.absoluteX === undefined) { noAbsXCount++; continue }
-                        // FIX: Do not inflate by scrollLeft. Coordinate space matches exactly.
                         const noteX = n.absoluteX
                         const isRevealed = noteX <= cursorX + 5
                         if (n.isRevealed !== isRevealed) {
@@ -404,6 +430,14 @@ const ScrollViewComponent: React.FC<ScrollViewProps> = ({
                         if (isRevealed) revealedCount++; else hiddenCount++
                     }
                 })
+                // Also reveal beams/ties by their X position
+                for (const bt of beamTieElementsRef.current) {
+                    const isRevealed = bt.x <= cursorX + 5
+                    if (bt.isRevealed !== isRevealed) {
+                        bt.isRevealed = isRevealed
+                        bt.el.style.opacity = isRevealed ? '1' : '0'
+                    }
+                }
                 // Log once per ~60 frames to avoid flooding
                 if (Math.random() < 0.016) {
                     console.log(`[NOTE REVEAL] cursorX=${cursorX.toFixed(0)} revealed=${revealedCount} hidden=${hiddenCount} noElement=${noElementCount} noAbsX=${noAbsXCount}`)
