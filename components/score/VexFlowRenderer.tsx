@@ -663,10 +663,12 @@ const VexFlowRendererComponent: React.FC<VexFlowRendererProps> = ({
                     note.element.style.transformOrigin = 'center center'
 
                     // Grace notes use SVG transform for positioning — CSS transition would
-                    // cause them to 'fly in' when revealed. Only apply transitions to
-                    // regular notes for pop/jump/glow effects.
-                    const isInsideGrace = note.element.closest('.vf-gracenotegroup') !== null
-                    if (!isInsideGrace) {
+                    // cause them to 'fly in' when revealed. Skip transitions for:
+                    // 1. Elements INSIDE a grace note group (checking UP the tree)
+                    // 2. Elements that CONTAIN a grace note group (checking DOWN — main note with grace notes)
+                    const isGraceRelated = note.element.closest('.vf-gracenotegroup') !== null
+                        || note.element.querySelector('.vf-gracenotegroup') !== null
+                    if (!isGraceRelated) {
                         note.element.style.transition = 'transform 0.1s ease-out, filter 0.1s'
                     }
 
