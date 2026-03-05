@@ -56,6 +56,8 @@ const ScrollViewComponent: React.FC<ScrollViewProps> = ({
 
     const lastMeasureIndexRef = useRef<number>(-1)
     const prevRevealModeRef = useRef<'OFF' | 'NOTE' | 'CURTAIN'>('OFF')
+    const revealModeRef = useRef(revealMode) // Always-current ref for callbacks
+    revealModeRef.current = revealMode
 
     // ─── Parsing State ─────────────────────────────────────────────
     const [intermediateScore, setIntermediateScore] = useState<IntermediateScore | null>(null)
@@ -159,27 +161,37 @@ const ScrollViewComponent: React.FC<ScrollViewProps> = ({
         allSymbolsRef.current = newAllSymbols
         lastMeasureIndexRef.current = -1
 
-        // Pre-cache note child elements and absolute X positions
+        // Pre-cache absoluteX positions for reveal mode
+        // (note.element, note.pathsAndRects already set by VexFlowRenderer's requestAnimationFrame)
         if (containerRef.current) {
             const cLeft = containerRef.current.getBoundingClientRect().left
+            let populatedCount = 0
             result.noteMap.forEach((notes) => {
                 for (const note of notes) {
                     if (note.element) {
-                        const group = note.element
-                        const pathsAndRects = Array.from(group.querySelectorAll('path, rect')) as HTMLElement[]
-                        pathsAndRects.forEach(p => {
-                            p.style.transformBox = 'fill-box'
-                            p.style.transformOrigin = 'center'
-                            p.style.transition = 'transform 0.1s ease-out, fill 0.1s, stroke 0.1s'
-                        })
-                        note.pathsAndRects = pathsAndRects
-                        note.absoluteX = group.getBoundingClientRect().left - cLeft
+                        note.absoluteX = note.element.getBoundingClientRect().left - cLeft
+                        populatedCount++
                     }
                 }
             })
+            console.log(`[ScrollView] Pre-cached absoluteX for ${populatedCount} notes`)
         }
 
         setIsLoaded(true)
+
+        // FIX: If NOTE reveal mode is already active when the score finishes rendering,
+        // we need to hide all the newly-created note elements (the useEffect already fired
+        // before elements existed, so those opacity sets were no-ops)
+        if (revealModeRef.current === 'NOTE') {
+            console.log('[ScrollView] NOTE mode active at render complete — hiding all notes')
+            result.noteMap.forEach(notes => {
+                notes.forEach(n => {
+                    if (n.element) n.element.style.opacity = '0'
+                    n.isRevealed = false
+                })
+            })
+            lastMeasureIndexRef.current = -1
+        }
 
         // Fire onScoreLoaded with the preserved xmlEvents
         if (onScoreLoaded) {
@@ -377,9 +389,11 @@ const ScrollViewComponent: React.FC<ScrollViewProps> = ({
 
             // ─── NOTE reveal (Fixed Math Bug) ─
             if (revealMode === 'NOTE') {
+                let revealedCount = 0, hiddenCount = 0, noElementCount = 0, noAbsXCount = 0
                 noteMap.current.forEach((notes) => {
                     for (const n of notes) {
-                        if (!n.element || n.absoluteX === undefined) continue
+                        if (!n.element) { noElementCount++; continue }
+                        if (n.absoluteX === undefined) { noAbsXCount++; continue }
                         // FIX: Do not inflate by scrollLeft. Coordinate space matches exactly.
                         const noteX = n.absoluteX
                         const isRevealed = noteX <= cursorX + 5
@@ -387,8 +401,13 @@ const ScrollViewComponent: React.FC<ScrollViewProps> = ({
                             n.isRevealed = isRevealed
                             n.element.style.opacity = isRevealed ? '1' : '0'
                         }
+                        if (isRevealed) revealedCount++; else hiddenCount++
                     }
                 })
+                // Log once per ~60 frames to avoid flooding
+                if (Math.random() < 0.016) {
+                    console.log(`[NOTE REVEAL] cursorX=${cursorX.toFixed(0)} revealed=${revealedCount} hidden=${hiddenCount} noElement=${noElementCount} noAbsX=${noAbsXCount}`)
+                }
             }
 
             // Clean up ALL stale measures if we changed measure boundaries or did a rapid seek
