@@ -208,7 +208,14 @@ export class WaterfallRenderer {
             this.canvasWidth = rect.width
             this.canvasHeight = rect.height
             this.strikeLineY = this.canvasHeight - 4
+
+            // PixiJS resizeTo only fires on window.resize, NOT on CSS flex changes.
+            // Must manually resize the renderer so its coordinate system matches.
+            if (this.app) {
+                this.app.renderer.resize(this.canvasWidth, this.canvasHeight)
+            }
             this.drawStrikeLine()
+            this.cacheKeyElements()
         }
 
         const time = this.playbackManager.getVisualTime()
