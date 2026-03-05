@@ -177,9 +177,9 @@ const ScrollViewComponent: React.FC<ScrollViewProps> = ({
             )
             extraGroups.forEach(el => {
                 const htmlEl = el as HTMLElement
-                const rect = htmlEl.getBoundingClientRect()
-                // Use the LEFT edge of the beam/tie as its reveal position
-                beamTieEls.push({ el: htmlEl, x: rect.left - cLeft })
+                // Use the RIGHT edge so ties/slurs spanning ahead are only
+                // revealed when the cursor reaches their end point
+                beamTieEls.push({ el: htmlEl, x: htmlEl.getBoundingClientRect().right - cLeft })
             })
             beamTieElementsRef.current = beamTieEls
             console.log(`[ScrollView] Collected ${beamTieEls.length} beam/tie elements for reveal`)
