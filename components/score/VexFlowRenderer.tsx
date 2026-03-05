@@ -653,7 +653,7 @@ const VexFlowRendererComponent: React.FC<VexFlowRendererProps> = ({
 
                     // Configure the <g> group for CSS transforms so stems don't detach
                     note.element.style.transformBox = 'fill-box'
-                    note.element.style.transformOrigin = 'center bottom'
+                    note.element.style.transformOrigin = 'center center'
                     note.element.style.transition = 'transform 0.1s ease-out, filter 0.1s, opacity 0.15s ease-out'
 
                     if (note.pathsAndRects) {
