@@ -20,7 +20,9 @@
             "logic.html",
             "tsconfig.tsbuildinfo",
             ".env.local",
-            "migrations/**"
+            "migrations/**",
+            "_backup_files/**",
+            "docs/**"
         ]
     }
 }
