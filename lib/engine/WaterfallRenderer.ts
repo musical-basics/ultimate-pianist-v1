@@ -5,7 +5,6 @@
 import { Application, Graphics, Container } from 'pixi.js'
 import type { NoteEvent, ParsedMidi } from '../types'
 import { NotePool } from './NotePool'
-import type { NoteItem } from './NotePool'
 import {
     calculatePianoMetricsFromDOM,
     calculatePianoMetrics,
@@ -134,7 +133,7 @@ export class WaterfallRenderer {
 
         this.app.ticker.add(this.boundRenderFrame)
 
-        console.log('[SynthUI] WaterfallRenderer initialized (zero-alloc render loop)')
+        console.log('[SynthUI] WaterfallRenderer initialized (Graphics-based render loop)')
     }
 
     private cacheKeyElements(): void {
@@ -243,51 +242,37 @@ export class WaterfallRenderer {
 
             if ((noteTopY + noteHeight) < 0 || noteTopY > canvasH) continue
 
-            const item = this.notePool.acquire()
-            if (!item) break
+            const g = this.notePool.acquire()
+            if (!g) break
 
+            const baseX = Math.round(this.keyX[note.pitch])
             const w = Math.round(this.keyW[note.pitch])
             const h = Math.max(Math.round(noteHeight), 12)
-            const color = velocityToColor(note.velocity)
+            const heatColor = velocityToColor(note.velocity)
             const active = time >= note.startTimeSec && time <= note.endTimeSec
 
-            // Position the container
-            const baseX = Math.round(this.keyX[note.pitch])
-            item.container.x = active ? baseX - 1 : baseX
-            item.container.y = noteTopY
+            if (active) this.activeThisFrame[note.pitch] = 1
 
-            // Border sprite: always full note size
-            const finalW = active ? w + 2 : w
-            item.border.x = 0
-            item.border.y = 0
-            item.border.width = finalW
-            item.border.height = h
+            // Calculate inner border thickness based on velocity
+            const maxThickness = Math.min(w, h) / 2
+            // Maps velocity 0-127 → thickness from 2px to full fill
+            const thickness = 2 + (note.velocity / 127) * (maxThickness - 2)
 
-            // Tint both with velocity rainbow color
-            item.fill.tint = color
-            item.border.tint = color
+            // Clear and redraw this Graphics object
+            g.clear()
 
-            // Inner border thickness: fill is inset inward based on velocity
-            // Soft (≤20) → max inset (hollow outline), Loud (≥100) → 0 inset (fully filled)
-            const velClamped = Math.max(0, Math.min(127, note.velocity))
-            const fillFrac = velClamped <= 20 ? 0
-                : velClamped >= 100 ? 1
-                    : (velClamped - 20) / (100 - 20) // 0..1
-            const maxInset = Math.min(8, finalW * 0.4) // cap at 40% of width
-            const inset = Math.round(maxInset * (1 - fillFrac))
+            // Faint glass-like center tint so hollow notes don't vanish completely
+            g.roundRect(baseX, noteTopY, w, h, 4)
+            g.fill({ color: heatColor, alpha: active ? 0.15 : 0.05 })
 
-            item.fill.x = inset
-            item.fill.y = inset
-            item.fill.width = Math.max(1, finalW - inset * 2)
-            item.fill.height = Math.max(1, h - inset * 2)
-
-            if (active) {
-                this.activeThisFrame[note.pitch] = 1
-                item.fill.alpha = fillFrac * 0.95  // 0 for soft (hollow) → 0.95 for loud (solid)
-                item.border.alpha = 1.0
+            if (note.velocity >= 120) {
+                // Max velocity: completely fill the note
+                g.roundRect(baseX, noteTopY, w, h, 4)
+                g.fill({ color: heatColor, alpha: active ? 0.95 : 0.75 })
             } else {
-                item.fill.alpha = fillFrac * 0.8
-                item.border.alpha = 0.6
+                // Dynamic inner border: alignment 1 = stroke grows inward only
+                g.roundRect(baseX, noteTopY, w, h, 4)
+                g.stroke({ color: heatColor, width: thickness, alignment: 1, alpha: active ? 0.95 : 0.75 })
             }
         }
 
