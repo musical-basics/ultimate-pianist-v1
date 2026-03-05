@@ -11,7 +11,6 @@ import { WaveformTimeline } from '@/components/score/WaveformTimeline'
 import { MidiTimeline } from '@/components/score/MidiTimeline'
 import { ScoreControls } from '@/components/score/ScoreControls'
 import { useAppStore } from '@/lib/store'
-import { useMusicFont } from '@/hooks/useMusicFont'
 import { getPlaybackManager } from '@/lib/engine/PlaybackManager'
 import { parseMidiFile } from '@/lib/midi/parser'
 import type { SongConfig, ParsedMidi, BeatAnchor, XMLEvent, V5MapperState } from '@/lib/types'
@@ -35,7 +34,8 @@ export default function AdminEditor() {
     const [xmlEvents, setXmlEvents] = useState<XMLEvent[]>([])
     const xmlEventsRef = useRef<XMLEvent[]>([]) // Persists fermata data across OSMD re-renders
     const [v5State, setV5State] = useState<V5MapperState | null>(null)
-    const { musicFont, setFont } = useMusicFont()
+    const [musicFont, setMusicFont] = useState('')
+    const savedFontRef = useRef('')
 
     const anchors = useAppStore((s) => s.anchors)
     const beatAnchors = useAppStore((s) => s.beatAnchors)
@@ -47,6 +47,7 @@ export default function AdminEditor() {
     const setDarkMode = useAppStore((s) => s.setDarkMode)
     const revealMode = useAppStore((s) => s.revealMode)
     const setRevealMode = useAppStore((s) => s.setRevealMode)
+    const previewEffects = useAppStore((s) => s.previewEffects)
     const highlightNote = useAppStore((s) => s.highlightNote)
     const setHighlightNote = useAppStore((s) => s.setHighlightNote)
     const glowEffect = useAppStore((s) => s.glowEffect)
@@ -71,7 +72,35 @@ export default function AdminEditor() {
     const xmlInputRef = useRef<HTMLInputElement>(null)
     const midiInputRef = useRef<HTMLInputElement>(null)
 
+    // ─── Font reload on tab switch (same pattern as learn page) ──
+    useEffect(() => {
+        const onVisibilityChange = () => {
+            if (document.visibilityState === 'visible' && savedFontRef.current) {
+                setMusicFont('')
+                setTimeout(() => setMusicFont(savedFontRef.current), 1000)
+            }
+        }
+        document.addEventListener('visibilitychange', onVisibilityChange)
+        return () => document.removeEventListener('visibilitychange', onVisibilityChange)
+    }, [])
 
+    // ─── Font re-apply when toggles cause VexFlow re-render ──
+    const prevTogglesRef = useRef({ previewEffects, revealMode, darkMode, popEffect, jumpEffect, glowEffect, highlightNote })
+    useEffect(() => {
+        const prev = prevTogglesRef.current
+        const changed = prev.previewEffects !== previewEffects
+            || prev.revealMode !== revealMode
+            || prev.darkMode !== darkMode
+            || prev.popEffect !== popEffect
+            || prev.jumpEffect !== jumpEffect
+            || prev.glowEffect !== glowEffect
+            || prev.highlightNote !== highlightNote
+        prevTogglesRef.current = { previewEffects, revealMode, darkMode, popEffect, jumpEffect, glowEffect, highlightNote }
+        if (changed && savedFontRef.current) {
+            setMusicFont('')
+            setTimeout(() => setMusicFont(savedFontRef.current), 1000)
+        }
+    }, [previewEffects, revealMode, darkMode, popEffect, jumpEffect, glowEffect, highlightNote])
 
     useEffect(() => {
         const load = async () => {
@@ -86,7 +115,9 @@ export default function AdminEditor() {
                     if (data.subdivision) setSubdivision(data.subdivision)
                     console.log('[FONT DEBUG] DB returned music_font:', JSON.stringify(data.music_font), 'type:', typeof data.music_font)
                     if (data.music_font) {
-                        setFont(data.music_font)
+                        savedFontRef.current = data.music_font
+                        // Delay applying saved font to let VexFlow fonts finish downloading first
+                        setTimeout(() => setMusicFont(data.music_font!), 1000)
                     }
                 }
             } catch (err) {
@@ -538,7 +569,7 @@ export default function AdminEditor() {
 
                         <select
                             value={musicFont}
-                            onChange={(e) => setFont(e.target.value)}
+                            onChange={(e) => { setMusicFont(e.target.value); savedFontRef.current = e.target.value }}
                             className="text-xs px-2 py-1.5 rounded border bg-zinc-800 border-zinc-600 text-zinc-300 cursor-pointer hover:border-zinc-500"
                         >
                             <option value="Bravura">♪ Bravura</option>
