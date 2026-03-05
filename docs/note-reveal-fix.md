@@ -39,5 +39,17 @@ NOTE reveal mode did nothing — all notes remained visible regardless of cursor
 ## What Worked
 Reading VexFlow v5's `element.js` source directly to understand the `getSVGElement()` → `prefix(attrs.id)` → `document.getElementById()` chain. This revealed the double-prefix corruption.
 
-## Remaining Issue: Orphaned Stems
-Stems/beams show ahead of the cursor even though noteheads are hidden. VexFlow renders stems as separate SVG groups that are not always children of the `.vf-stavenote` `<g>` element we're hiding. **Fix in progress.**
+## Remaining Issue: Orphaned Stems (FIXED)
+Stems/beams show ahead of the cursor even though noteheads are hidden. VexFlow renders beams as separate `<g class="vf-beam">` groups outside the `.vf-stavenote` `<g>` element we're hiding.
+
+**Fix:** Collect ALL `g[class*="vf-"]` groups (excluding staves, clefs, key/time signatures). Hide them on NOTE mode entry and reveal by X position in the animation loop.
+
+### Ties/Slurs Appearing Early (Sub-Fix)
+Ties and slurs span from a past note to a future note. Using their LEFT bounding rect edge caused them to be revealed prematurely.
+
+**Fix:** Use the RIGHT edge of the bounding rect so ties are only revealed when the cursor passes their end point.
+
+## Font Timing Issue
+Switching tabs or reveal modes could cause VexFlow fonts to not render correctly.
+
+**Fix:** Added `visibilitychange` listener on both admin and learn pages to reset and re-apply `musicFont` after a 1-second delay when the user switches back to the tab. Uses `savedFontRef` to track the current font across tab switches.
