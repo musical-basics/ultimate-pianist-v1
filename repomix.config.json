@@ -21,8 +21,7 @@
             "tsconfig.tsbuildinfo",
             ".env.local",
             "migrations/**",
-            "_backup_files/**",
-            "docs/**"
+            "_backup_files/**"
         ]
     }
 }

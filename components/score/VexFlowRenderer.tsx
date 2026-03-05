@@ -8,7 +8,7 @@
 
 import * as React from 'react'
 import { useRef, useEffect, useCallback, useState } from 'react'
-import { VexFlow } from 'vexflow'
+import { VexFlow } from 'dreamflow'
 import {
     Renderer,
     Stave,
@@ -24,7 +24,7 @@ import {
     Fraction,
     type RenderContext,
     VoiceMode,
-} from 'vexflow'
+} from 'dreamflow'
 import type { IntermediateScore } from '@/lib/score/IntermediateScore'
 import {
     STAVE_WIDTH, STAVE_Y_TREBLE, STAVE_SPACING, LEFT_MARGIN, SYSTEM_HEIGHT,

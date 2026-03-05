@@ -3,7 +3,7 @@
 // Shared constants, types, and helper functions used by VexFlowRenderer.
 // Keeps the renderer component lean and focused on layout + rendering.
 
-import { StaveNote, Articulation, GraceNote, GraceNoteGroup, Curve } from 'vexflow'
+import { StaveNote, Articulation, GraceNote, GraceNoteGroup, Curve } from 'dreamflow'
 import type { IntermediateNote } from '@/lib/score/IntermediateScore'
 
 // ─── Layout Constants ──────────────────────────────────────────────
