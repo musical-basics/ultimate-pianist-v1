@@ -158,6 +158,9 @@ export class WaterfallRenderer {
         this.canvasHeight = rect.height
         this.strikeLineY = this.canvasHeight - 4
 
+        // Explicitly resize the WebGL canvas when the layout changes
+        this.app.renderer.resize(this.canvasWidth, this.canvasHeight)
+
         const parent = this.canvasContainer.parentElement?.parentElement || this.canvasContainer
         const metrics =
             calculatePianoMetricsFromDOM(parent) ||
@@ -200,23 +203,6 @@ export class WaterfallRenderer {
 
     private renderFrame(): void {
         if (!this.notePool || this.notes.length === 0) return
-
-        // Read live container dimensions every frame to avoid stale values
-        // after layout changes (e.g., toggling sheet music off)
-        const rect = this.canvasContainer.getBoundingClientRect()
-        if (rect.width !== this.canvasWidth || rect.height !== this.canvasHeight) {
-            this.canvasWidth = rect.width
-            this.canvasHeight = rect.height
-            this.strikeLineY = this.canvasHeight - 4
-
-            // PixiJS resizeTo only fires on window.resize, NOT on CSS flex changes.
-            // Must manually resize the renderer so its coordinate system matches.
-            if (this.app) {
-                this.app.renderer.resize(this.canvasWidth, this.canvasHeight)
-            }
-            this.drawStrikeLine()
-            this.cacheKeyElements()
-        }
 
         const time = this.playbackManager.getVisualTime()
         const pps = this.pixelsPerSecond
