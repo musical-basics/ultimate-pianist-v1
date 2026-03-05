@@ -251,7 +251,8 @@ const VexFlowRendererComponent: React.FC<VexFlowRendererProps> = ({
                             addArticulation(staveNote, artCode)
                         }
 
-                        staveNote.setAttribute('id', note.vfId)
+                        // NOTE: Do NOT call staveNote.setAttribute('id', ...) — this corrupts
+                        // VexFlow's internal attrs.id, causing getSVGElement() to double-prefix
                         vfNotes.push(staveNote)
 
                         // Grace notes: attach to this main note
@@ -324,52 +325,19 @@ const VexFlowRendererComponent: React.FC<VexFlowRendererProps> = ({
                                 } catch { /* ignore */ }
                             }
 
-                            // Get SVG element reference directly from VexFlow's rendered output
-                            // (staveNote.el or attrs.el holds the SVG <g> after draw())
+                            // Get SVG element using VexFlow's native method
+                            // getSVGElement() calls document.getElementById(prefix(attrs.id))
                             let element: HTMLElement | null = null
                             let pathsAndRects: HTMLElement[] | undefined
                             try {
                                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                                const sn = staveNote as any
-
-                                // DEBUG: Dump StaveNote properties once to find SVG element ref
-                                if (!coordinateExtractors._dumped) {
-                                    coordinateExtractors._dumped = true
-                                    const ownKeys = Object.keys(sn).filter(k => typeof sn[k] !== 'function')
-                                    console.log('[VFR DEBUG] StaveNote own keys:', ownKeys)
-                                    console.log('[VFR DEBUG] StaveNote attrs:', sn.attrs)
-                                    // Check prototype for getters
-                                    const protoNames = Object.getOwnPropertyNames(Object.getPrototypeOf(sn))
-                                        .filter(k => k !== 'constructor' && typeof sn[k] !== 'function')
-                                    console.log('[VFR DEBUG] StaveNote proto non-fn:', protoNames)
-                                    // Check common SVG element property names
-                                    console.log('[VFR DEBUG] .el=', sn.el, '.svg=', sn.svg, '.element=', sn.element,
-                                        '.getSVGElement=', typeof sn.getSVGElement, '.getElement=', typeof sn.getElement)
-                                }
-
-                                const el = sn.el || sn.attrs?.el || sn.svg || sn.element
-                                if (el) {
-                                    const group = (el.closest?.('.vf-stavenote') as HTMLElement) || (el as HTMLElement)
+                                const svgEl = (staveNote as any).getSVGElement?.() as HTMLElement | undefined
+                                if (svgEl) {
+                                    const group = (svgEl.closest('.vf-stavenote') as HTMLElement) || svgEl
                                     element = group
                                     pathsAndRects = Array.from(group.querySelectorAll('path, rect')) as HTMLElement[]
                                 }
                             } catch { /* ignore */ }
-
-                            // Fallback: use VexFlow's auto-generated ID from the SVG
-                            if (!element && containerRef.current) {
-                                try {
-                                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                                    const autoId = (staveNote as any).attrs?.id
-                                    if (autoId) {
-                                        const found = containerRef.current.querySelector(`[id="${autoId}"]`) as HTMLElement
-                                        if (found) {
-                                            const group = (found.closest('.vf-stavenote') as HTMLElement) || found
-                                            element = group
-                                            pathsAndRects = Array.from(group.querySelectorAll('path, rect')) as HTMLElement[]
-                                        }
-                                    }
-                                } catch { /* ignore */ }
-                            }
 
                             measureNoteData.push({
                                 id: note.vfId,
