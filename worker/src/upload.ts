@@ -11,12 +11,16 @@ let _s3: S3Client | null = null
 
 function getS3Client(): S3Client {
   if (!_s3) {
+    // R2 endpoint: https://<ACCOUNT_ID>.r2.cloudflarestorage.com
+    const endpoint = process.env.R2_ENDPOINT
+      || `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`
+
     _s3 = new S3Client({
       region: 'auto',
-      endpoint: process.env.R2_ENDPOINT!,
+      endpoint,
       credentials: {
-        accessKeyId: process.env.R2_ACCESS_KEY!,
-        secretAccessKey: process.env.R2_SECRET_KEY!,
+        accessKeyId: process.env.R2_ACCESS_KEY_ID!,
+        secretAccessKey: process.env.R2_SECRET_ACCESS_KEY!,
       },
     })
   }
@@ -37,7 +41,7 @@ export async function uploadToR2(
 
   await s3.send(
     new PutObjectCommand({
-      Bucket: process.env.R2_BUCKET!,
+      Bucket: process.env.R2_BUCKET_NAME!,
       Key: key,
       Body: fileStream,
       ContentType: 'video/mp4',
@@ -45,7 +49,7 @@ export async function uploadToR2(
     })
   )
 
-  const publicUrl = `${process.env.R2_PUBLIC_URL}/${key}`
+  const publicUrl = `${process.env.R2_PUBLIC_DOMAIN}/${key}`
   console.log(`[Upload] ✅ Upload complete: ${publicUrl} (${(fileStats.size / 1024 / 1024).toFixed(1)}MB)`)
 
   return publicUrl
