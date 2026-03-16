@@ -8,16 +8,19 @@
  */
 
 import * as React from 'react'
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { createClient } from '@supabase/supabase-js'
 import { X, Download, Loader2, CheckCircle, AlertCircle, Film } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import type { ExportStatus } from '@/lib/types/renderJob'
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-)
+// Lazy-init: only create Supabase client at runtime (not during Next.js prerender)
+function getSupabaseClient() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  )
+}
 
 interface ExportProgressModalProps {
   exportId: string
@@ -32,6 +35,7 @@ export function ExportProgressModal({ exportId, onClose }: ExportProgressModalPr
 
   // Fetch initial state
   useEffect(() => {
+    const supabase = getSupabaseClient()
     const fetchInitial = async () => {
       const { data } = await supabase
         .from('video_exports')
@@ -51,6 +55,7 @@ export function ExportProgressModal({ exportId, onClose }: ExportProgressModalPr
 
   // Subscribe to Realtime updates
   useEffect(() => {
+    const supabase = getSupabaseClient()
     const channel = supabase
       .channel(`export-${exportId}`)
       .on(
