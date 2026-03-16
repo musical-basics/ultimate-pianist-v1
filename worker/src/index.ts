@@ -8,19 +8,23 @@
  */
 
 import { Worker, Job } from 'bullmq'
-import IORedis from 'ioredis'
 import { processRenderJob } from './renderJob'
 
 if (!process.env.REDIS_URL) {
   throw new Error('REDIS_URL environment variable is required')
 }
 
-const connection = new IORedis(process.env.REDIS_URL, {
-  maxRetriesPerRequest: null, // Required by BullMQ
+const redisUrl = new URL(process.env.REDIS_URL)
+const connection = {
+  host: redisUrl.hostname,
+  port: parseInt(redisUrl.port || '6379'),
+  password: redisUrl.password || undefined,
+  username: redisUrl.username || 'default',
   tls: process.env.REDIS_URL.startsWith('rediss://')
     ? { rejectUnauthorized: false }
     : undefined,
-})
+  maxRetriesPerRequest: null as null,
+}
 
 const worker = new Worker(
   'video-export',

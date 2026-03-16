@@ -172,12 +172,10 @@ export async function processRenderJob(job: Job<RenderJobPayload>): Promise<void
       const timeSec = frame / FPS
 
       // Step 35: Advance the engine clock deterministically
-      await page.evaluate((t: number) => {
-        (window as any).__ADVANCE_FRAME__(t)
-      }, timeSec)
+      await page.evaluate(`window.__ADVANCE_FRAME__(${timeSec})`)
 
       // Wait one rAF for PixiJS to flush to canvas
-      await page.evaluate(() => new Promise(resolve => requestAnimationFrame(resolve)))
+      await page.evaluate('new Promise(resolve => requestAnimationFrame(resolve))')
 
       // Step 36: Capture the frame (JPEG — drastically faster + less memory than PNG)
       const frameBuffer = await page.screenshot({
