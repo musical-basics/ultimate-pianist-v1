@@ -56,11 +56,13 @@ function spawnFFmpeg(audioPath: string, outputPath: string): ChildProcess {
     '-i', '-',
     // Input 2: Audio file
     '-i', audioPath,
-    // Output encoding
+    // Output encoding — ultrafast to prevent backpressure on limited CPU
     '-c:v', 'libx264',
     '-pix_fmt', 'yuv420p',
-    '-preset', 'fast',
+    '-preset', 'ultrafast',
+    '-tune', 'zerolatency',
     '-crf', '23',
+    '-threads', '0',
     '-c:a', 'aac',
     '-b:a', '192k',
     '-shortest',
@@ -69,7 +71,14 @@ function spawnFFmpeg(audioPath: string, outputPath: string): ChildProcess {
   ]
 
   console.log(`[FFmpeg] Spawning: ffmpeg ${args.join(' ')}`)
-  const proc = spawn('ffmpeg', args, { stdio: ['pipe', 'pipe', 'pipe'] })
+  // Use large pipe buffer (16MB) to prevent backpressure stalls
+  const proc = spawn('ffmpeg', args, {
+    stdio: ['pipe', 'pipe', 'pipe'],
+  })
+  // Increase stdin highWaterMark for more buffering
+  if (proc.stdin) {
+    (proc.stdin as any).highWaterMark = 16 * 1024 * 1024 // 16MB
+  }
 
   proc.stderr?.on('data', (data: Buffer) => {
     const msg = data.toString().trim()
