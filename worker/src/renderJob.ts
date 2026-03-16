@@ -171,11 +171,18 @@ export async function processRenderJob(job: Job<RenderJobPayload>): Promise<void
     for (let frame = 0; frame < totalFrames; frame++) {
       const timeSec = frame / FPS
 
+      // Log every 10 frames for diagnostic visibility
+      if (frame % 10 === 0) console.log(`[Loop] Frame ${frame}: ADVANCE`)
+
       // Step 35: Advance the engine clock deterministically
       await page.evaluate(`window.__ADVANCE_FRAME__(${timeSec})`)
 
+      if (frame % 10 === 0) console.log(`[Loop] Frame ${frame}: DELAY`)
+
       // Small delay for compositor to flush (rAF doesn't fire in headless Chrome)
       await page.evaluate('new Promise(resolve => setTimeout(resolve, 1))')
+
+      if (frame % 10 === 0) console.log(`[Loop] Frame ${frame}: SCREENSHOT`)
 
       // Step 36: Capture the frame (JPEG — drastically faster + less memory than PNG)
       const frameBuffer = await page.screenshot({
@@ -184,11 +191,14 @@ export async function processRenderJob(job: Job<RenderJobPayload>): Promise<void
         encoding: 'binary',
       }) as Buffer
 
+      if (frame % 10 === 0) console.log(`[Loop] Frame ${frame}: FFMPEG_WRITE (${frameBuffer.length} bytes)`)
+
       // Step 37: CRITICAL — Handle stdin backpressure
       // If FFmpeg's buffer is full, PAUSE until it drains.
       // Without this, Node.js hoards thousands of frames in RAM → OOM crash.
       const canWrite = ffmpeg.stdin!.write(frameBuffer)
       if (!canWrite) {
+        if (frame % 10 === 0) console.log(`[Loop] Frame ${frame}: BACKPRESSURE — waiting for drain`)
         await new Promise<void>(resolve => ffmpeg.stdin!.once('drain', resolve))
       }
 
@@ -199,10 +209,22 @@ export async function processRenderJob(job: Job<RenderJobPayload>): Promise<void
         // Throttle Supabase updates to once per ~2 seconds
         const now = Date.now()
         if (now - lastProgressUpdate > 2000 || frame === totalFrames - 1) {
-          await job.updateProgress(percent)
-          await supabase.from('video_exports').update({
-            progress: percent,
-          }).eq('id', exportId)
+          // Non-blocking progress updates — don't let them stall the render
+          try {
+            console.log(`[Progress] Frame ${frame}: updating Redis...`)
+            await Promise.race([
+              job.updateProgress(percent),
+              new Promise((_, reject) => setTimeout(() => reject(new Error('Redis timeout')), 5000)),
+            ])
+            console.log(`[Progress] Frame ${frame}: updating Supabase...`)
+            await Promise.race([
+              supabase.from('video_exports').update({ progress: percent }).eq('id', exportId),
+              new Promise((_, reject) => setTimeout(() => reject(new Error('Supabase timeout')), 5000)),
+            ])
+            console.log(`[Progress] Frame ${frame}: updates complete`)
+          } catch (e) {
+            console.warn(`[Progress] Frame ${frame}: progress update failed (non-fatal):`, (e as Error).message)
+          }
           lastProgressUpdate = now
         }
 
