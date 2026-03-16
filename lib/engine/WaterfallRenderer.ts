@@ -302,7 +302,7 @@ export class WaterfallRenderer {
             ? ((this.playbackManager as any)._manualTime ?? 0) * 1000
             : performance.now()
         const dt = isStudio
-            ? 1 / 30  // Fixed 30fps timestep for deterministic particles (matches render FPS)
+            ? 1 / ((window as any).__EXPORT_FPS__ || 30)  // Configurable: 60fps local, 30fps server
             : Math.min((now - this.lastPhysicsTime) / 1000, 0.05) // Cap delta to prevent teleporting
         this.lastPhysicsTime = now
 

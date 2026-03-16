@@ -105,16 +105,18 @@ export const SplitScreenLayout: React.FC<SplitScreenLayoutProps> = ({
                 rendererRef.current = localRenderer
                 setRendererReady(true)
 
-                // Steps 19-20: Expose studio mode globals for Puppeteer
+                // Expose waterfall globals for both studio mode and local export
+                const renderer = localRenderer;
+                (window as any).__WATERFALL_CANVAS__ = renderer.app?.canvas || null;
+                (window as any).__RENDER_WATERFALL = () => {
+                    renderer.renderFrame()
+                    if (renderer.app) {
+                        renderer.app.renderer.render({ container: renderer.app.stage })
+                    }
+                }
+
+                // Studio mode: also expose __ADVANCE_FRAME__ for Puppeteer
                 if (isStudioMode && localRenderer) {
-                    const pm = getPlaybackManager()
-                    const renderer = localRenderer;
-                    (window as any).__RENDER_WATERFALL = () => {
-                        renderer.renderFrame()
-                        if (renderer.app) {
-                            renderer.app.renderer.render({ container: renderer.app.stage })
-                        }
-                    };
                     (window as any).__ADVANCE_FRAME__ = (timeSec: number) => {
                         // 1. Update the master clock
                         pm.setManualTime(timeSec);
@@ -127,8 +129,8 @@ export const SplitScreenLayout: React.FC<SplitScreenLayoutProps> = ({
                         // 3. Synchronously force PixiJS to paint the falling notes
                         (window as any).__RENDER_WATERFALL();
                     }
-                    console.log('[SplitScreen] Studio mode globals exposed: __ADVANCE_FRAME__, __RENDER_WATERFALL, __UPDATE_SCORE__')
                 }
+                console.log('[SplitScreen] Globals exposed: __WATERFALL_CANVAS__, __RENDER_WATERFALL' + (isStudioMode ? ', __ADVANCE_FRAME__, __UPDATE_SCORE__' : ''))
 
                 if (onRendererReady) onRendererReady()
             } catch (err) {

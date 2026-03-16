@@ -9,7 +9,7 @@
 import * as React from 'react'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
-import { ArrowLeft, Music, FileMusic, FileAudio, SkipBack, Play, Pause, Square, ChevronLeft, ChevronRight, Video } from 'lucide-react'
+import { ArrowLeft, Music, FileMusic, FileAudio, SkipBack, Play, Pause, Square, ChevronLeft, ChevronRight, Video, Zap } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Slider } from '@/components/ui/slider'
 import { SplitScreenLayout } from '@/components/layout/SplitScreenLayout'
@@ -43,6 +43,9 @@ export default function AdminDemoEditor() {
     const [displayTime, setDisplayTime] = useState(0)
     const [exportId, setExportId] = useState<string | null>(null)
     const [isExporting, setIsExporting] = useState(false)
+    const [isLocalExporting, setIsLocalExporting] = useState(false)
+    const [localExportProgress, setLocalExportProgress] = useState('')
+    const [localExportPercent, setLocalExportPercent] = useState(0)
     const displayRafRef = useRef<number>(0)
 
     const anchors = useAppStore((s) => s.anchors)
@@ -431,7 +434,58 @@ export default function AdminDemoEditor() {
                                 className="bg-purple-600 hover:bg-purple-700 text-white text-xs"
                             >
                                 <Video className="w-3.5 h-3.5 mr-1" />
-                                {isExporting ? 'Starting…' : 'Export Video'}
+                                {isExporting ? 'Starting…' : 'Cloud Export'}
+                            </Button>
+                            <Button
+                                size="sm"
+                                disabled={isLocalExporting || isExporting}
+                                onClick={async () => {
+                                    if (!config.audio_url || !duration) {
+                                        alert('Audio and duration are required for export.')
+                                        return
+                                    }
+                                    setIsLocalExporting(true)
+                                    setLocalExportProgress('Initializing...')
+                                    setLocalExportPercent(0)
+                                    try {
+                                        const { exportVideoLocal } = await import('@/lib/export/clientExport')
+                                        await exportVideoLocal({
+                                            audioUrl: config.audio_url.startsWith('http')
+                                                ? config.audio_url
+                                                : `${window.location.origin}${config.audio_url}`,
+                                            durationSec: duration,
+                                            fps: 60,
+                                            onProgress: (frame, total, phase) => {
+                                                setLocalExportProgress(`${phase} ${Math.round(frame / total * 100)}%`)
+                                                setLocalExportPercent(Math.round(frame / total * 100))
+                                            },
+                                            onComplete: () => {
+                                                setLocalExportProgress('✅ Download started!')
+                                                setTimeout(() => {
+                                                    setIsLocalExporting(false)
+                                                    setLocalExportProgress('')
+                                                    setLocalExportPercent(0)
+                                                }, 3000)
+                                            },
+                                            onError: (err) => {
+                                                alert(`Local export failed: ${err.message}`)
+                                                setIsLocalExporting(false)
+                                                setLocalExportProgress('')
+                                                setLocalExportPercent(0)
+                                            },
+                                        })
+                                    } catch (err: any) {
+                                        console.error('[LocalExport] Error:', err)
+                                        alert(`Local export failed: ${err.message}`)
+                                        setIsLocalExporting(false)
+                                        setLocalExportProgress('')
+                                        setLocalExportPercent(0)
+                                    }
+                                }}
+                                className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs"
+                            >
+                                <Zap className="w-3.5 h-3.5 mr-1" />
+                                {isLocalExporting ? localExportProgress : 'Fast Export (GPU)'}
                             </Button>
                         </div>
 
