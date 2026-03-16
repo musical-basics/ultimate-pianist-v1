@@ -166,6 +166,19 @@ export async function processRenderJob(job: Job<RenderJobPayload>): Promise<void
     })
     console.log('[Render] ✅ Hydration complete')
 
+    // ─── Wait for web fonts (Bravura music font) to load ──────────
+    console.log('[Render] Waiting for web fonts to load...')
+    await page.evaluateHandle('document.fonts.ready')
+    const fontStatus = await page.evaluate(() => {
+      const fonts: string[] = []
+      document.fonts.forEach(f => fonts.push(`${f.family} (${f.status})`))
+      return fonts.join(', ')
+    })
+    console.log(`[Render] ✅ Fonts loaded: ${fontStatus}`)
+
+    // Brief settle delay to let font rendering flush into the DOM
+    await page.evaluate('new Promise(r => setTimeout(r, 500))')
+
     // ─── Step 32: Calculate loop metrics ─────────────────────────
     const totalFrames = Math.ceil(durationSec * FPS)
     console.log(`[Render] Rendering ${totalFrames} frames at ${FPS}fps (${durationSec.toFixed(1)}s)`)

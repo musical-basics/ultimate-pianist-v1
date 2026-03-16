@@ -433,6 +433,8 @@ export class WaterfallRenderer {
             const fillSprite = item.fill
             fillSprite.texture = this.notePool.getFillTexture(isBlackKey(note.pitch))
             fillSprite.x = baseX; fillSprite.y = noteTopY; fillSprite.width = w; fillSprite.height = h
+            // Tint the fill with the velocity heat color when active
+            fillSprite.tint = active ? heatColor : 0xFFFFFF
 
             const borderSprite = item.border
             borderSprite.texture = note.velocity >= 120 ? this.notePool.getSolidFillTexture() : this.notePool.getBorderTexture(borderLevel)

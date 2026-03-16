@@ -106,11 +106,11 @@ export default function RenderView() {
 
   // ─── Step 15: Signal hydration readiness ──────────────────────────
   useEffect(() => {
-    if (rendererReady && scoreLoaded) {
+    if (rendererReady && scoreLoaded && parsedMidi) {
       window.__RENDER_READY__ = true
-      console.log('[RenderView] Hydration complete — ready for frame capture')
+      console.log('[RenderView] Hydration complete — renderer, score, and MIDI all ready for frame capture')
     }
-  }, [rendererReady, scoreLoaded])
+  }, [rendererReady, scoreLoaded, parsedMidi])
 
   // ─── Track renderer readiness from SplitScreenLayout ──────────────
   const handleRendererReady = useCallback(() => {
