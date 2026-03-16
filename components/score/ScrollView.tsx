@@ -573,9 +573,18 @@ const ScrollViewComponent: React.FC<ScrollViewProps> = ({
         } catch { /* ignore */ }
     }, [findCurrentPosition, isLoaded, measureXMap, revealMode, popEffect, jumpEffect, glowEffect, darkMode, highlightNote, cursorPosition, isLocked, curtainLookahead, showCursor, isAdmin, onMeasureChange, previewEffects, dynamicColor])
 
-    // ─── Animation Loop (unchanged) ────────────────────────────────
+    // ─── Animation Loop ────────────────────────────────
     useEffect(() => {
         if (!isLoaded) return
+
+        // In studio mode, kill the async loop and expose a synchronous updater
+        if ((window as any).__STUDIO_MODE__) {
+            (window as any).__UPDATE_SCORE__ = () => {
+                updateCursorPosition(getPlaybackManager().getVisualTime())
+            }
+            return // No RAF loop — Puppeteer drives updates via __ADVANCE_FRAME__
+        }
+
         const animate = () => {
             updateCursorPosition(getPlaybackManager().getVisualTime())
             animationFrameRef.current = requestAnimationFrame(animate)

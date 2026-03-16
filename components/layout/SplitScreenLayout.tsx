@@ -116,10 +116,18 @@ export const SplitScreenLayout: React.FC<SplitScreenLayoutProps> = ({
                         }
                     };
                     (window as any).__ADVANCE_FRAME__ = (timeSec: number) => {
+                        // 1. Update the master clock
                         pm.setManualTime(timeSec);
-                        (window as any).__RENDER_WATERFALL()
+
+                        // 2. Synchronously force the DOM to move the sheet music cursor
+                        if ((window as any).__UPDATE_SCORE__) {
+                            (window as any).__UPDATE_SCORE__();
+                        }
+
+                        // 3. Synchronously force PixiJS to paint the falling notes
+                        (window as any).__RENDER_WATERFALL();
                     }
-                    console.log('[SplitScreen] Studio mode globals exposed: __ADVANCE_FRAME__, __RENDER_WATERFALL')
+                    console.log('[SplitScreen] Studio mode globals exposed: __ADVANCE_FRAME__, __RENDER_WATERFALL, __UPDATE_SCORE__')
                 }
 
                 if (onRendererReady) onRendererReady()

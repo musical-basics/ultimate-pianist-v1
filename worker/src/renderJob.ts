@@ -27,7 +27,7 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
 
-const FPS = 60
+const FPS = 30
 const INTERNAL_APP_URL = process.env.INTERNAL_APP_URL || 'http://localhost:3000'
 
 // ─── Step 29: Download Audio to Local Disk ──────────────────────────
@@ -60,7 +60,7 @@ function spawnFFmpeg(audioPath: string, outputPath: string): ChildProcess {
     '-c:v', 'libx264',
     '-pix_fmt', 'yuv420p',
     '-preset', 'ultrafast',
-    '-tune', 'zerolatency',
+    '-tune', 'animation',  // Optimized for flat UI colors
     '-crf', '23',
     '-threads', '0',
     '-c:a', 'aac',
@@ -186,19 +186,17 @@ export async function processRenderJob(job: Job<RenderJobPayload>): Promise<void
       if (shouldLog) console.log(`[Loop] F${frame}: ADVANCE t=${timeSec.toFixed(3)}`)
 
       // Step 35: Advance the engine clock deterministically
+      // __ADVANCE_FRAME__ now synchronously updates clock + DOM cursor + PixiJS waterfall
+      // No delay needed — all updates are mathematically complete before this returns
       await page.evaluate(`window.__ADVANCE_FRAME__(${timeSec})`)
-
-      if (shouldLog) console.log(`[Loop] F${frame}: DELAY`)
-
-      // Small delay for compositor to flush (rAF doesn't fire in headless Chrome)
-      await page.evaluate('new Promise(resolve => setTimeout(resolve, 1))')
 
       if (shouldLog) console.log(`[Loop] F${frame}: SCREENSHOT`)
 
       // Step 36: Capture the frame (JPEG — drastically faster + less memory than PNG)
+      // Optimized quality: 75 is visually identical for flat UI, halves IPC payload (~128KB→~70KB)
       const frameBuffer = await page.screenshot({
         type: 'jpeg',
-        quality: 90,
+        quality: 75,
         encoding: 'binary',
       }) as Buffer
 
