@@ -265,7 +265,14 @@ export async function processRenderJob(job: Job<RenderJobPayload>): Promise<void
     browser = null
 
     // ─── Step 40: Upload to R2 ───────────────────────────────────
-    const mp4Url = await uploadToR2(outputPath, exportId)
+    const fileSize = fs.statSync(outputPath).size
+    console.log(`[Upload] Starting R2 upload: ${outputPath} (${(fileSize / 1024 / 1024).toFixed(1)}MB)`)
+    const mp4Url = await Promise.race([
+      uploadToR2(outputPath, exportId),
+      new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('R2 upload timed out after 120s')), 120_000)
+      ),
+    ])
 
     // Update Supabase with completed status
     await supabase.from('video_exports').update({

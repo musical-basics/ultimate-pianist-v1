@@ -19,6 +19,7 @@
             "score-repomix-output.xml",
             "synth-repomix-output.xml",
             "repomix-output.xml",
+            "ultimate-repomix-output.xml",
             "logic.html",
             "tsconfig.tsbuildinfo",
             ".env.local",
@@ -27,7 +28,12 @@
             "docs/**",
             "public/demo/**",
             "video_renderer_instructions.md",
-            "components.json"
+            "components.json",
+            "worker/**",
+            "components/ui/**",
+            "postcss.config.mjs",
+            "next-env.d.ts",
+            "hooks/**"
         ]
     }
 }

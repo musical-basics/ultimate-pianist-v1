@@ -112,7 +112,9 @@ export class WaterfallRenderer {
             autoDensity: true,
             backgroundAlpha: 0,
             resizeTo: this.canvasContainer,
-        })
+            // Required for html-to-image to read WebGL canvas during local export
+            preserveDrawingBuffer: true,
+        } as any)
 
         const canvas = this.app.canvas as HTMLCanvasElement
         canvas.style.position = 'absolute'

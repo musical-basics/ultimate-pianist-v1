@@ -454,7 +454,7 @@ export default function AdminDemoEditor() {
                                                 ? config.audio_url
                                                 : `${window.location.origin}${config.audio_url}`,
                                             durationSec: duration,
-                                            fps: 60,
+                                            fps: 30,
                                             onProgress: (frame, total, phase) => {
                                                 setLocalExportProgress(`${phase} ${Math.round(frame / total * 100)}%`)
                                                 setLocalExportPercent(Math.round(frame / total * 100))

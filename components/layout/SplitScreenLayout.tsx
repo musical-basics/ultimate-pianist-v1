@@ -108,6 +108,7 @@ export const SplitScreenLayout: React.FC<SplitScreenLayoutProps> = ({
                 // Expose waterfall globals for both studio mode and local export
                 const renderer = localRenderer;
                 (window as any).__WATERFALL_CANVAS__ = renderer.app?.canvas || null;
+                (window as any).__EXPORT_CONTAINER__ = containerFullRef.current;
                 (window as any).__RENDER_WATERFALL = () => {
                     renderer.renderFrame()
                     if (renderer.app) {
