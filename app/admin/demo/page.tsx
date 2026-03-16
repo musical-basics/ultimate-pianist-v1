@@ -412,7 +412,9 @@ export default function AdminDemoEditor() {
                                             headers: { 'Content-Type': 'application/json' },
                                             body: JSON.stringify({
                                                 configId: 'demo',
-                                                audioUrl: config.audio_url,
+                                                audioUrl: config.audio_url.startsWith('http')
+                                                    ? config.audio_url
+                                                    : `${window.location.origin}${config.audio_url}`,
                                                 durationSec: duration,
                                             }),
                                         })
