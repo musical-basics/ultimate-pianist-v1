@@ -1,4 +1,4 @@
-# Step 22-24: Dockerfile for the Railway video render worker
+# Video Export Worker — Railway Dockerfile
 # Uses dumb-init as PID 1 to reap zombie Chrome/FFmpeg processes
 
 FROM node:20-bullseye-slim
@@ -33,12 +33,15 @@ ENV NODE_ENV=production
 WORKDIR /app
 
 # ─── Dependencies ──────────────────────────────────────────────────
-COPY package.json pnpm-lock.yaml* ./
-RUN npm install -g pnpm && pnpm install --prod --frozen-lockfile || pnpm install --prod
+COPY package.json ./
+RUN npm install -g pnpm && pnpm install --no-frozen-lockfile
 
 # ─── Application ───────────────────────────────────────────────────
 COPY . .
 RUN pnpm build
+
+# ─── Prune devDependencies after build ─────────────────────────────
+RUN pnpm prune --prod
 
 # ─── PID 1: dumb-init reaps orphaned Chrome/FFmpeg on crash ───────
 ENTRYPOINT ["dumb-init", "--"]
