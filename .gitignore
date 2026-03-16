@@ -36,3 +36,11 @@ repomix-output.*
 *-repomix-output.*
 *repomix*.xml
 !repomix.config.json
+
+# working source files (originals in repo root — NOT the demo copies)
+*.wav
+*.musicxml
+*.mid
+*.midi
+# keep demo assets tracked
+!public/demo/**
