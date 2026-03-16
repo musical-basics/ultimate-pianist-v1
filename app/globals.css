@@ -147,3 +147,14 @@ body.studio-mode [data-studio-main]>div {
     width: 100% !important;
     height: 100% !important;
 }
+
+/* Deterministic rendering: kill all CSS transitions/animations
+   to prevent inter-frame blurring during screenshot capture */
+body.studio-mode *,
+body.studio-mode *::before,
+body.studio-mode *::after {
+    transition: none !important;
+    animation: none !important;
+    transition-duration: 0s !important;
+    animation-duration: 0s !important;
+}

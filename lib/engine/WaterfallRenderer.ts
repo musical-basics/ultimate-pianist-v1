@@ -51,7 +51,7 @@ interface Spark {
 }
 
 export class WaterfallRenderer {
-    private app: Application | null = null
+    public app: Application | null = null
     private notePool: NotePool | null = null
     private playbackManager: PlaybackManager
     private canvasContainer: HTMLElement
@@ -146,9 +146,13 @@ export class WaterfallRenderer {
         this.resizeObserver.observe(this.canvasContainer)
 
         this.lastPhysicsTime = performance.now()
-        this.app.ticker.add(this.boundRenderFrame)
+        // In studio mode, don't attach to the auto-ticker.
+        // renderFrame() will be called manually via window.__RENDER_WATERFALL__
+        if (!(window as any).__STUDIO_MODE__) {
+            this.app.ticker.add(this.boundRenderFrame)
+        }
 
-        console.log('[SynthUI] WaterfallRenderer initialized (sprite-atlas render loop + FX engine)')
+        console.log(`[SynthUI] WaterfallRenderer initialized (sprite-atlas render loop + FX engine)${(window as any).__STUDIO_MODE__ ? ' [STUDIO MODE]' : ''}`)
     }
 
     private initParticles() {
@@ -289,12 +293,17 @@ export class WaterfallRenderer {
     setTrackVisibility(leftHand: boolean, rightHand: boolean): void { this.leftHandActive = leftHand; this.rightHandActive = rightHand }
     setZoom(pps: number): void { this.pixelsPerSecond = pps }
 
-    private renderFrame(): void {
+    public renderFrame(): void {
         if (!this.notePool || this.notes.length === 0 || !this.app) return
 
         // ── Physics Time Step ──
-        const now = performance.now()
-        const dt = Math.min((now - this.lastPhysicsTime) / 1000, 0.05) // Cap delta to prevent teleporting
+        const isStudio = !!(window as any).__STUDIO_MODE__
+        const now = isStudio
+            ? ((this.playbackManager as any)._manualTime ?? 0) * 1000
+            : performance.now()
+        const dt = isStudio
+            ? 1 / 60  // Fixed 60fps timestep for deterministic particles
+            : Math.min((now - this.lastPhysicsTime) / 1000, 0.05) // Cap delta to prevent teleporting
         this.lastPhysicsTime = now
 
         const time = this.playbackManager.getVisualTime()

@@ -15,9 +15,11 @@ interface SplitScreenLayoutProps {
     xmlUrl: string | null
     parsedMidi: ParsedMidi | null
     isAdmin?: boolean
+    isStudioMode?: boolean
     onUpdateAnchor?: (measure: number, time: number) => void
     onUpdateBeatAnchor?: (measure: number, beat: number, time: number) => void
     onScoreLoaded?: (totalMeasures: number, noteCounts: Map<number, number>, xmlEvents?: XMLEvent[]) => void
+    onRendererReady?: () => void
     musicFont?: string
     children?: React.ReactNode
 }
@@ -27,10 +29,12 @@ export const SplitScreenLayout: React.FC<SplitScreenLayoutProps> = ({
     xmlUrl,
     parsedMidi,
     isAdmin = false,
+    isStudioMode = false,
     musicFont,
     onUpdateAnchor,
     onUpdateBeatAnchor,
     onScoreLoaded,
+    onRendererReady,
     children,
 }) => {
     // ─── Store Connections ──────────────────────────────────────────
@@ -59,7 +63,8 @@ export const SplitScreenLayout: React.FC<SplitScreenLayoutProps> = ({
     const [rendererReady, setRendererReady] = useState(false)
 
     useEffect(() => {
-        if (!audioUrl) return
+        // Step 14: In studio mode, skip audio element entirely
+        if (isStudioMode || !audioUrl) return
 
         const audio = new Audio(audioUrl)
         audio.crossOrigin = 'anonymous'
@@ -74,7 +79,7 @@ export const SplitScreenLayout: React.FC<SplitScreenLayoutProps> = ({
             pm.setAudioElement(null)
             audioRef.current = null
         }
-    }, [audioUrl])
+    }, [audioUrl, isStudioMode])
 
     useEffect(() => {
         let isCancelled = false
@@ -99,6 +104,25 @@ export const SplitScreenLayout: React.FC<SplitScreenLayoutProps> = ({
 
                 rendererRef.current = localRenderer
                 setRendererReady(true)
+
+                // Steps 19-20: Expose studio mode globals for Puppeteer
+                if (isStudioMode && localRenderer) {
+                    const pm = getPlaybackManager()
+                    const renderer = localRenderer;
+                    (window as any).__RENDER_WATERFALL = () => {
+                        renderer.renderFrame()
+                        if (renderer.app) {
+                            renderer.app.renderer.render({ container: renderer.app.stage })
+                        }
+                    };
+                    (window as any).__ADVANCE_FRAME__ = (timeSec: number) => {
+                        pm.setManualTime(timeSec);
+                        (window as any).__RENDER_WATERFALL()
+                    }
+                    console.log('[SplitScreen] Studio mode globals exposed: __ADVANCE_FRAME__, __RENDER_WATERFALL')
+                }
+
+                if (onRendererReady) onRendererReady()
             } catch (err) {
                 console.error('[SplitScreen] Renderer init failed:', err)
             }

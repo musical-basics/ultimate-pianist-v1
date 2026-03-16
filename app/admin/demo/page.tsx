@@ -9,10 +9,11 @@
 import * as React from 'react'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
-import { ArrowLeft, Music, FileMusic, FileAudio, SkipBack, Play, Pause, Square, ChevronLeft, ChevronRight } from 'lucide-react'
+import { ArrowLeft, Music, FileMusic, FileAudio, SkipBack, Play, Pause, Square, ChevronLeft, ChevronRight, Video } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Slider } from '@/components/ui/slider'
 import { SplitScreenLayout } from '@/components/layout/SplitScreenLayout'
+import { ExportProgressModal } from '@/components/video/ExportProgressModal'
 import { AnchorSidebar } from '@/components/score/AnchorSidebar'
 import { WaveformTimeline } from '@/components/score/WaveformTimeline'
 import { MidiTimeline } from '@/components/score/MidiTimeline'
@@ -40,6 +41,8 @@ export default function AdminDemoEditor() {
     const [v5State, setV5State] = useState<V5MapperState | null>(null)
     const { musicFont, setFont } = useMusicFont()
     const [displayTime, setDisplayTime] = useState(0)
+    const [exportId, setExportId] = useState<string | null>(null)
+    const [isExporting, setIsExporting] = useState(false)
     const displayRafRef = useRef<number>(0)
 
     const anchors = useAppStore((s) => s.anchors)
@@ -353,6 +356,7 @@ export default function AdminDemoEditor() {
     }, [isPlaying, isRecording, handlePlayPause, handleTap])
 
     return (
+        <>
         <div className="h-screen flex overflow-hidden bg-zinc-950">
             <AnchorSidebar
                 anchors={anchors}
@@ -393,6 +397,40 @@ export default function AdminDemoEditor() {
                             <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/30">
                                 <span className="text-xs text-amber-400 font-medium">DEMO MODE</span>
                             </div>
+                            <Button
+                                size="sm"
+                                disabled={isExporting}
+                                onClick={async () => {
+                                    if (!config.audio_url || !duration) {
+                                        alert('Audio and duration are required for export.')
+                                        return
+                                    }
+                                    setIsExporting(true)
+                                    try {
+                                        const res = await fetch('/api/export', {
+                                            method: 'POST',
+                                            headers: { 'Content-Type': 'application/json' },
+                                            body: JSON.stringify({
+                                                configId: 'demo',
+                                                audioUrl: config.audio_url,
+                                                durationSec: duration,
+                                            }),
+                                        })
+                                        const data = await res.json()
+                                        if (data.exportId) setExportId(data.exportId)
+                                        else alert(data.error || 'Export failed')
+                                    } catch (err) {
+                                        console.error('[Export] Error:', err)
+                                        alert('Export request failed')
+                                    } finally {
+                                        setIsExporting(false)
+                                    }
+                                }}
+                                className="bg-purple-600 hover:bg-purple-700 text-white text-xs"
+                            >
+                                <Video className="w-3.5 h-3.5 mr-1" />
+                                {isExporting ? 'Starting…' : 'Export Video'}
+                            </Button>
                         </div>
 
                         <div className="flex items-center gap-2">
@@ -518,5 +556,14 @@ export default function AdminDemoEditor() {
                 </div>
             </div>
         </div>
+
+            {/* Export Progress Modal */}
+            {exportId && (
+                <ExportProgressModal
+                    exportId={exportId}
+                    onClose={() => setExportId(null)}
+                />
+            )}
+        </>
     )
 }

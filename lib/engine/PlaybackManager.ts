@@ -15,6 +15,24 @@ export class PlaybackManager {
     private audioContext: AudioContext | null = null
     private _isPlaying = false
 
+    // ─── Studio Mode: Deterministic Clock Override ────────────────
+    private _manualTime: number | null = null
+    private _studioMode = false
+
+    /** Set a manual time value that overrides all clock sources. */
+    setManualTime(t: number): void {
+        this._manualTime = t
+    }
+
+    /** Enable/disable studio mode (used by render-view route). */
+    setStudioMode(enabled: boolean): void {
+        this._studioMode = enabled
+    }
+
+    get studioMode(): boolean {
+        return this._studioMode
+    }
+
     private _songPosition = 0
     private _playStartedAtCtx = 0
     private _playbackRate = 1.0
@@ -85,6 +103,9 @@ export class PlaybackManager {
      * If an audio element is set, returns its currentTime (master clock).
      */
     getTime(): number {
+        // Studio mode: deterministic manual clock
+        if (this._manualTime !== null) return this._manualTime
+
         if (this._audioElement) {
             return this._audioElement.currentTime
         }
@@ -111,6 +132,9 @@ export class PlaybackManager {
      * If an audio element is set, returns its currentTime directly.
      */
     getVisualTime(): number {
+        // Studio mode: deterministic manual clock
+        if (this._manualTime !== null) return this._manualTime
+
         if (this._audioElement) {
             return this._audioElement.currentTime
         }
