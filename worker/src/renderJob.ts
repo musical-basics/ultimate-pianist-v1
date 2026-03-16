@@ -171,18 +171,20 @@ export async function processRenderJob(job: Job<RenderJobPayload>): Promise<void
     for (let frame = 0; frame < totalFrames; frame++) {
       const timeSec = frame / FPS
 
-      // Log every 10 frames for diagnostic visibility
-      if (frame % 10 === 0) console.log(`[Loop] Frame ${frame}: ADVANCE`)
+      // Log every 10 frames, but EVERY frame from 55-80 for stall diagnosis
+      const shouldLog = frame % 10 === 0 || (frame >= 55 && frame <= 80)
+
+      if (shouldLog) console.log(`[Loop] F${frame}: ADVANCE t=${timeSec.toFixed(3)}`)
 
       // Step 35: Advance the engine clock deterministically
       await page.evaluate(`window.__ADVANCE_FRAME__(${timeSec})`)
 
-      if (frame % 10 === 0) console.log(`[Loop] Frame ${frame}: DELAY`)
+      if (shouldLog) console.log(`[Loop] F${frame}: DELAY`)
 
       // Small delay for compositor to flush (rAF doesn't fire in headless Chrome)
       await page.evaluate('new Promise(resolve => setTimeout(resolve, 1))')
 
-      if (frame % 10 === 0) console.log(`[Loop] Frame ${frame}: SCREENSHOT`)
+      if (shouldLog) console.log(`[Loop] F${frame}: SCREENSHOT`)
 
       // Step 36: Capture the frame (JPEG — drastically faster + less memory than PNG)
       const frameBuffer = await page.screenshot({
@@ -191,39 +193,37 @@ export async function processRenderJob(job: Job<RenderJobPayload>): Promise<void
         encoding: 'binary',
       }) as Buffer
 
-      if (frame % 10 === 0) console.log(`[Loop] Frame ${frame}: FFMPEG_WRITE (${frameBuffer.length} bytes)`)
+      if (shouldLog) console.log(`[Loop] F${frame}: WRITE (${frameBuffer.length}b) stdin.writable=${ffmpeg.stdin!.writable} killed=${ffmpeg.killed}`)
 
       // Step 37: CRITICAL — Handle stdin backpressure
-      // If FFmpeg's buffer is full, PAUSE until it drains.
-      // Without this, Node.js hoards thousands of frames in RAM → OOM crash.
       const canWrite = ffmpeg.stdin!.write(frameBuffer)
       if (!canWrite) {
-        if (frame % 10 === 0) console.log(`[Loop] Frame ${frame}: BACKPRESSURE — waiting for drain`)
-        await new Promise<void>(resolve => ffmpeg.stdin!.once('drain', resolve))
+        console.log(`[Loop] F${frame}: BACKPRESSURE — waiting for FFmpeg drain...`)
+        // Add a timeout to backpressure wait so it doesn't hang forever
+        await Promise.race([
+          new Promise<void>(resolve => ffmpeg.stdin!.once('drain', resolve)),
+          new Promise<void>((_, reject) => setTimeout(() => reject(new Error(`FFmpeg drain timeout at frame ${frame}`)), 30000)),
+        ])
+        console.log(`[Loop] F${frame}: DRAIN received, continuing`)
       }
 
       // Step 38: Emit progress every 60 frames (1 second of video)
       if (frame % FPS === 0 || frame === totalFrames - 1) {
         const percent = Math.min(99, Math.round((frame / totalFrames) * 100))
 
-        // Throttle Supabase updates to once per ~2 seconds
         const now = Date.now()
         if (now - lastProgressUpdate > 2000 || frame === totalFrames - 1) {
-          // Non-blocking progress updates — don't let them stall the render
           try {
-            console.log(`[Progress] Frame ${frame}: updating Redis...`)
             await Promise.race([
               job.updateProgress(percent),
               new Promise((_, reject) => setTimeout(() => reject(new Error('Redis timeout')), 5000)),
             ])
-            console.log(`[Progress] Frame ${frame}: updating Supabase...`)
             await Promise.race([
               supabase.from('video_exports').update({ progress: percent }).eq('id', exportId),
               new Promise((_, reject) => setTimeout(() => reject(new Error('Supabase timeout')), 5000)),
             ])
-            console.log(`[Progress] Frame ${frame}: updates complete`)
           } catch (e) {
-            console.warn(`[Progress] Frame ${frame}: progress update failed (non-fatal):`, (e as Error).message)
+            console.warn(`[Progress] F${frame}: progress update failed (non-fatal):`, (e as Error).message)
           }
           lastProgressUpdate = now
         }
