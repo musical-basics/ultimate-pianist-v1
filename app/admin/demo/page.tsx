@@ -438,6 +438,59 @@ export default function AdminDemoEditor() {
                             </Button>
                             <Button
                                 size="sm"
+                                disabled={isExporting}
+                                onClick={async () => {
+                                    if (!config.audio_url) {
+                                        alert('Audio is required for export.')
+                                        return
+                                    }
+                                    setIsExporting(true)
+                                    try {
+                                        const res = await fetch('/api/export', {
+                                            method: 'POST',
+                                            headers: { 'Content-Type': 'application/json' },
+                                            body: JSON.stringify({
+                                                configId: 'demo',
+                                                audioUrl: config.audio_url.startsWith('http')
+                                                    ? config.audio_url
+                                                    : `${window.location.origin}${config.audio_url}`,
+                                                durationSec: 5,
+                                            }),
+                                        })
+                                        const data = await res.json()
+                                        if (data.exportId) setExportId(data.exportId)
+                                        else alert(data.error || 'Export failed')
+                                    } catch (err) {
+                                        console.error('[Export] Error:', err)
+                                        alert('Export request failed')
+                                    } finally {
+                                        setIsExporting(false)
+                                    }
+                                }}
+                                className="bg-purple-500 hover:bg-purple-600 text-white text-xs"
+                            >
+                                5s Cloud
+                            </Button>
+                            <Button
+                                size="sm"
+                                onClick={async () => {
+                                    if (!confirm('Kill all running cloud exports?')) return
+                                    try {
+                                        const res = await fetch('/api/export', { method: 'DELETE' })
+                                        const data = await res.json()
+                                        alert(`Killed! ${data.jobsCancelled || 0} jobs cancelled.`)
+                                        setExportId(null)
+                                    } catch (err) {
+                                        console.error('[Kill] Error:', err)
+                                        alert('Kill request failed')
+                                    }
+                                }}
+                                className="bg-red-600 hover:bg-red-700 text-white text-xs"
+                            >
+                                Kill Export
+                            </Button>
+                            <Button
+                                size="sm"
                                 disabled={isLocalExporting || isExporting}
                                 onClick={async () => {
                                     if (!config.audio_url || !duration) {

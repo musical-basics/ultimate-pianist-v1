@@ -66,3 +66,47 @@ export async function POST(req: NextRequest) {
     )
   }
 }
+
+/**
+ * DELETE /api/export
+ *
+ * Kill switch: drains all BullMQ jobs and marks active Supabase rows as cancelled.
+ */
+export async function DELETE() {
+  try {
+    // 1. Drain all pending jobs from the queue
+    const queue = getVideoExportQueue()
+    await queue.drain()
+    
+    // 2. Also obliterate any stuck/completed jobs
+    try {
+      await queue.obliterate({ force: true })
+    } catch (e) {
+      console.warn('[Export API] Obliterate warning:', e)
+    }
+
+    // 3. Mark any in-progress Supabase rows as cancelled
+    const { data: activeJobs } = await supabase
+      .from('video_exports')
+      .select('id')
+      .in('status', ['queued', 'rendering'])
+    
+    if (activeJobs && activeJobs.length > 0) {
+      await supabase
+        .from('video_exports')
+        .update({ status: 'cancelled', error_message: 'Killed by admin' })
+        .in('status', ['queued', 'rendering'])
+      
+      console.log(`[Export API] Cancelled ${activeJobs.length} active jobs`)
+    }
+
+    console.log('[Export API] Kill switch activated — all jobs drained')
+    return NextResponse.json({ status: 'killed', jobsCancelled: activeJobs?.length || 0 })
+  } catch (err) {
+    console.error('[Export API] Kill error:', err)
+    return NextResponse.json(
+      { error: 'Failed to kill exports' },
+      { status: 500 }
+    )
+  }
+}
