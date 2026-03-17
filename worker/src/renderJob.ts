@@ -295,7 +295,7 @@ export async function processRenderJob(job: Job<RenderJobPayload>): Promise<void
     const mp4Url = await Promise.race([
       uploadToR2(outputPath, exportId),
       new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error('R2 upload timed out after 120s')), 120_000)
+        setTimeout(() => reject(new Error('R2 upload timed out after 30s')), 30_000)
       ),
     ])
 

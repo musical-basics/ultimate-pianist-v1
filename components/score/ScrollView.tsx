@@ -538,6 +538,7 @@ const ScrollViewComponent: React.FC<ScrollViewProps> = ({
                 // DIAGNOSTIC: Track coloring stats for studio mode debugging
                 const isStudioDiag = !!(window as any).__STUDIO_MODE__
                 let diagActiveCount = 0, diagColoredCount = 0, diagPathCount = 0
+                let diagFillSample = '', diagVelocitySample = -1, diagPathFillAfter = ''
 
                 notesInMeasure.forEach(note => {
                     if (!note.element) return
@@ -568,15 +569,23 @@ const ScrollViewComponent: React.FC<ScrollViewProps> = ({
                                 tTransform = `scale(${popScale}) translateY(${jumpPx}px)`
                             }
 
-                            // DIAGNOSTIC: Log color being applied to active note
+                            // DIAGNOSTIC: Capture actual color values
                             if (isStudioDiag) {
                                 diagColoredCount++
                                 diagPathCount += note.pathsAndRects?.length || 0
+                                diagFillSample = tFill
+                                diagVelocitySample = note.velocity ?? -1
                             }
                         }
 
                         applyColor(note.element, tFill, note.pathsAndRects)
                         if (note.stemElement) applyColor(note.stemElement, tFill)
+
+                        // DIAGNOSTIC: Verify path fill after applyColor
+                        if (isStudioDiag && isActive && note.pathsAndRects && note.pathsAndRects.length > 0) {
+                            const p = note.pathsAndRects[0]
+                            diagPathFillAfter = `style=${p.style.fill} attr=${p.getAttribute('fill')}`
+                        }
 
                         // FIX: Apply transform & filter to the <g> group directly, not its sub-paths
                         note.element.style.filter = tFilter
@@ -586,7 +595,7 @@ const ScrollViewComponent: React.FC<ScrollViewProps> = ({
 
                 // DIAGNOSTIC: Log every call in studio mode
                 if (isStudioDiag && diagActiveCount > 0) {
-                    console.log(`[HIGHLIGHT DIAG] M${measure} gP=${globalProgress.toFixed(3)} active=${diagActiveCount} colored=${diagColoredCount} paths=${diagPathCount} highlightNote=${highlightNote} glowEffect=${glowEffect} popEffect=${popEffect} dynamicColor=${dynamicColor} fill=${diagColoredCount > 0 ? (dynamicColor ? 'dynamic' : '#10B981') : 'default'}`)
+                    console.log(`[HIGHLIGHT DIAG] M${measure} gP=${globalProgress.toFixed(3)} active=${diagActiveCount} paths=${diagPathCount} vel=${diagVelocitySample} tFill="${diagFillSample}" pathAfter="${diagPathFillAfter}"`)
                 }
             }
 
