@@ -44,3 +44,4 @@ repomix-output.*
 *.midi
 # keep demo assets tracked
 !public/demo/**
+export-repomix-output.xml

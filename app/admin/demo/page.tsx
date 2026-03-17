@@ -487,6 +487,56 @@ export default function AdminDemoEditor() {
                                 <Zap className="w-3.5 h-3.5 mr-1" />
                                 {isLocalExporting ? localExportProgress : 'Fast Export (GPU)'}
                             </Button>
+                            <Button
+                                size="sm"
+                                disabled={isLocalExporting || isExporting}
+                                onClick={async () => {
+                                    if (!config.audio_url) {
+                                        alert('Audio is required for export.')
+                                        return
+                                    }
+                                    setIsLocalExporting(true)
+                                    setLocalExportProgress('5s test...')
+                                    setLocalExportPercent(0)
+                                    try {
+                                        const { exportVideoLocal } = await import('@/lib/export/clientExport')
+                                        await exportVideoLocal({
+                                            audioUrl: config.audio_url.startsWith('http')
+                                                ? config.audio_url
+                                                : `${window.location.origin}${config.audio_url}`,
+                                            durationSec: 5, // Only 5 seconds for quick quality check
+                                            fps: 30,
+                                            onProgress: (frame, total, phase) => {
+                                                setLocalExportProgress(`Test: ${phase}`)
+                                                setLocalExportPercent(Math.round(frame / total * 100))
+                                            },
+                                            onComplete: () => {
+                                                setLocalExportProgress('✅ Test done!')
+                                                setTimeout(() => {
+                                                    setIsLocalExporting(false)
+                                                    setLocalExportProgress('')
+                                                    setLocalExportPercent(0)
+                                                }, 3000)
+                                            },
+                                            onError: (err) => {
+                                                alert(`Test export failed: ${err.message}`)
+                                                setIsLocalExporting(false)
+                                                setLocalExportProgress('')
+                                                setLocalExportPercent(0)
+                                            },
+                                        })
+                                    } catch (err: any) {
+                                        console.error('[LocalExport] Test error:', err)
+                                        alert(`Test export failed: ${err.message}`)
+                                        setIsLocalExporting(false)
+                                        setLocalExportProgress('')
+                                        setLocalExportPercent(0)
+                                    }
+                                }}
+                                className="bg-amber-600 hover:bg-amber-700 text-white text-xs"
+                            >
+                                5s Test
+                            </Button>
                         </div>
 
                         <div className="flex items-center gap-2">
