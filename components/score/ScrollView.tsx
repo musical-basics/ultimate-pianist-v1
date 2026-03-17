@@ -535,6 +535,10 @@ const ScrollViewComponent: React.FC<ScrollViewProps> = ({
                 const defaultColor = darkMode ? '#e0e0e0' : '#000000'
                 const fallbackHighlight = '#10B981'; const fallbackShadow = '#10B981'
 
+                // DIAGNOSTIC: Track coloring stats for studio mode debugging
+                const isStudioDiag = !!(window as any).__STUDIO_MODE__
+                let diagActiveCount = 0, diagColoredCount = 0, diagPathCount = 0
+
                 notesInMeasure.forEach(note => {
                     if (!note.element) return
                     if (note.isRest) return  // FIX: Don't pop or highlight rests!
@@ -548,6 +552,7 @@ const ScrollViewComponent: React.FC<ScrollViewProps> = ({
                         let tFill = defaultColor, tFilter = 'none', tTransform = 'scale(1) translateY(0)'
 
                         if (isActive) {
+                            diagActiveCount++
                             const useDynamic = dynamicColor && note.velocity !== undefined
                             const dynColor = useDynamic ? velocityToCSS(note.velocity!) : fallbackHighlight
                             const dynShadow = useDynamic ? velocityToCSS(note.velocity!) : fallbackShadow
@@ -562,6 +567,12 @@ const ScrollViewComponent: React.FC<ScrollViewProps> = ({
                                 const jumpPx = jumpEffect ? (isStudio ? -6 : -10) : 0
                                 tTransform = `scale(${popScale}) translateY(${jumpPx}px)`
                             }
+
+                            // DIAGNOSTIC: Log color being applied to active note
+                            if (isStudioDiag) {
+                                diagColoredCount++
+                                diagPathCount += note.pathsAndRects?.length || 0
+                            }
                         }
 
                         applyColor(note.element, tFill, note.pathsAndRects)
@@ -572,6 +583,11 @@ const ScrollViewComponent: React.FC<ScrollViewProps> = ({
                         note.element.style.transform = tTransform
                     }
                 })
+
+                // DIAGNOSTIC: Log every call in studio mode
+                if (isStudioDiag && diagActiveCount > 0) {
+                    console.log(`[HIGHLIGHT DIAG] M${measure} gP=${globalProgress.toFixed(3)} active=${diagActiveCount} colored=${diagColoredCount} paths=${diagPathCount} highlightNote=${highlightNote} glowEffect=${glowEffect} popEffect=${popEffect} dynamicColor=${dynamicColor} fill=${diagColoredCount > 0 ? (dynamicColor ? 'dynamic' : '#10B981') : 'default'}`)
+                }
             }
 
         } catch { /* ignore */ }

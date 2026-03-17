@@ -151,6 +151,14 @@ export async function processRenderJob(job: Job<RenderJobPayload>): Promise<void
       deviceScaleFactor: 1,
     })
 
+    // Forward browser console logs to worker stdout for diagnostics
+    page.on('console', msg => {
+      const text = msg.text()
+      if (text.includes('HIGHLIGHT DIAG') || text.includes('RenderView') || text.includes('FONT DEBUG') || text.includes('SplitScreen')) {
+        console.log(`[Browser] ${text}`)
+      }
+    })
+
     // ─── Step 31: Navigate & await hydration ─────────────────────
     const renderUrl = `${INTERNAL_APP_URL}/render-view/${configId}`
     console.log(`[Render] Navigating to: ${renderUrl}`)
