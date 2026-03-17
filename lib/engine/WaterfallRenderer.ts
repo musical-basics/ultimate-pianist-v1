@@ -185,9 +185,9 @@ export class WaterfallRenderer {
             this.lightnings.push(s)
         }
 
-        // 500 Sparks (pooled)
-        for (let i = 0; i < 500; i++) {
-            const isFlame = i < 250 // Half are flames (soft circle), half are sparks (sharp lines)
+        // 1200 Sparks (pooled) — big pool for eye-candy bursts
+        for (let i = 0; i < 1200; i++) {
+            const isFlame = i < 600 // Half are flames (soft circle), half are sparks (sharp lines)
             const s = new Sprite(isFlame ? particleTex : sparkTex)
             s.anchor.set(0.5, 0.5)
             s.blendMode = 'add'
@@ -203,41 +203,41 @@ export class WaterfallRenderer {
     private spawnSparks(x: number, y: number, color: number, width: number) {
         let spawnedSparks = 0;
         let spawnedFlames = 0;
-        const targetSparks = 8 + Math.floor(Math.random() * 8);  // 8-15 Fast outward sparks
-        const targetFlames = 4 + Math.floor(Math.random() * 4);  // 4-7 Slow upward fire
+        const targetSparks = 18 + Math.floor(Math.random() * 13);  // 18-30 Fast outward sparks
+        const targetFlames = 10 + Math.floor(Math.random() * 9);   // 10-18 Slow upward fire
 
         for (let i = 0; i < this.sparks.length; i++) {
             const p = this.sparks[i];
             if (!p.active) {
                 if (!p.isFlame && spawnedSparks < targetSparks) {
-                    // SPARK: fast, shooting outward, affected by heavy gravity
+                    // SPARK: fast, shooting outward, affected by gravity
                     p.active = true;
                     p.sprite.visible = true;
                     p.sprite.tint = color;
-                    p.x = x + (Math.random() - 0.5) * width;
+                    p.x = x + (Math.random() - 0.5) * width * 1.5; // Wider spawn spread
                     p.y = y;
-                    const angle = -Math.PI / 2 + (Math.random() - 0.5) * Math.PI; // Wide spread
-                    const speed = 200 + Math.random() * 400;
+                    const angle = -Math.PI / 2 + (Math.random() - 0.5) * Math.PI * 1.3; // Even wider arc
+                    const speed = 350 + Math.random() * 650; // Much faster launch
                     p.vx = Math.cos(angle) * speed;
                     p.vy = Math.sin(angle) * speed;
-                    p.baseScale = 0.3 + Math.random() * 0.4;
+                    p.baseScale = 0.4 + Math.random() * 0.6; // Bigger sparks
                     p.sprite.scale.set(p.baseScale);
-                    p.maxLife = p.life = 0.2 + Math.random() * 0.3; // Short life
+                    p.maxLife = p.life = 0.35 + Math.random() * 0.45; // Longer life = travel further
                     spawnedSparks++;
                 } else if (p.isFlame && spawnedFlames < targetFlames) {
-                    // FLAME: slow, moving straight up, fades out
+                    // FLAME: rising fire particles, fades out
                     p.active = true;
                     p.sprite.visible = true;
                     p.sprite.tint = color;
-                    p.x = x + (Math.random() - 0.5) * width; // Spread across key width
-                    p.y = y + (Math.random() * 10);
-                    const angle = -Math.PI / 2 + (Math.random() - 0.5) * 0.5; // Mostly straight up
-                    const speed = 50 + Math.random() * 150;
+                    p.x = x + (Math.random() - 0.5) * width * 1.8; // Wider flame spread
+                    p.y = y + (Math.random() * 15);
+                    const angle = -Math.PI / 2 + (Math.random() - 0.5) * 0.8; // Wider cone upward
+                    const speed = 80 + Math.random() * 280; // Faster flames
                     p.vx = Math.cos(angle) * speed;
                     p.vy = Math.sin(angle) * speed;
-                    p.baseScale = 0.6 + Math.random() * 0.8;
+                    p.baseScale = 0.8 + Math.random() * 1.2; // Bigger flames
                     p.sprite.scale.set(p.baseScale);
-                    p.maxLife = p.life = 0.3 + Math.random() * 0.2; // Slightly longer life
+                    p.maxLife = p.life = 0.4 + Math.random() * 0.35; // Longer life
                     spawnedFlames++;
                 }
 
@@ -465,8 +465,8 @@ export class WaterfallRenderer {
                     const flare = this.flares[pitch]
                     if (flare) {
                         flare.active = true
-                        flare.life = 0.2
-                        flare.maxLife = 0.2
+                        flare.life = 0.35     // Longer shockwave
+                        flare.maxLife = 0.35
                         flare.sprite.tint = this.activeHexColorThisFrame[pitch]
                         flare.sprite.x = cx
                         flare.sprite.y = strikeY
@@ -504,8 +504,8 @@ export class WaterfallRenderer {
                         f.sprite.visible = false
                     } else {
                         const t = 1 - (f.life / f.maxLife) // 0 to 1
-                        f.sprite.scale.set(0.5 + t * 1.0)  // Expand outward slightly
-                        f.sprite.alpha = (1 - t) * 0.8     // Fade out
+                        f.sprite.scale.set(0.8 + t * 2.5)  // Much bigger shockwave expansion
+                        f.sprite.alpha = (1 - t) * 0.9     // Brighter fade
                     }
                 }
             }
@@ -529,9 +529,9 @@ export class WaterfallRenderer {
                             s.sprite.alpha = lifeT;
                             s.sprite.scale.set(lifeT * s.baseScale);
                         } else {
-                            // Sparks fall (gravity) and drag
-                            s.vy += 1200 * dt; // Heavy gravity
-                            s.vx *= (1 - 3 * dt); // Air drag
+                            // Sparks fall (gravity) and drag — reduced so they fly further
+                            s.vy += 600 * dt;   // Lighter gravity = more hang time
+                            s.vx *= (1 - 1.5 * dt); // Less air drag = further travel
                             s.x += s.vx * dt;
                             s.y += s.vy * dt;
                             s.sprite.x = s.x;
