@@ -130,6 +130,11 @@ export const SplitScreenLayout: React.FC<SplitScreenLayoutProps> = ({
 
                         // 3. Synchronously force PixiJS to paint the falling notes
                         (window as any).__RENDER_WATERFALL();
+
+                        // 4. Force DOM reflow — ensures all style mutations (fill, stroke,
+                        //    transform, filter) are committed to the render tree before
+                        //    Puppeteer captures the screenshot
+                        void document.body.offsetHeight;
                     }
                 }
                 console.log('[SplitScreen] Globals exposed: __WATERFALL_CANVAS__, __RENDER_WATERFALL' + (isStudioMode ? ', __ADVANCE_FRAME__, __UPDATE_SCORE__' : ''))

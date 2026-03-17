@@ -2,40 +2,35 @@
  * R2 Upload Utility — Cloudflare R2 via AWS S3 SDK
  *
  * Uses @aws-sdk/lib-storage Upload class for multipart chunked uploads.
- * This bypasses the R2 stream-hanging bug in PutObjectCommand by
- * automatically handling chunking and concurrency.
+ * Creates a FRESH S3Client per upload to avoid stale TCP connections
+ * that cause the second upload to hang.
  */
 
 import { S3Client } from '@aws-sdk/client-s3'
 import { Upload } from '@aws-sdk/lib-storage'
 import fs from 'fs'
 
-let _s3: S3Client | null = null
+function createS3Client(): S3Client {
+  const endpoint = process.env.R2_ENDPOINT
+    || `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`
 
-function getS3Client(): S3Client {
-  if (!_s3) {
-    const endpoint = process.env.R2_ENDPOINT
-      || `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`
+  console.log(`[Upload] Creating fresh S3 client → ${endpoint}`)
 
-    console.log(`[Upload] Initializing S3 client → ${endpoint}`)
-
-    _s3 = new S3Client({
-      region: 'auto',
-      endpoint,
-      credentials: {
-        accessKeyId: process.env.R2_ACCESS_KEY_ID!,
-        secretAccessKey: process.env.R2_SECRET_ACCESS_KEY!,
-      },
-    })
-  }
-  return _s3
+  return new S3Client({
+    region: 'auto',
+    endpoint,
+    credentials: {
+      accessKeyId: process.env.R2_ACCESS_KEY_ID!,
+      secretAccessKey: process.env.R2_SECRET_ACCESS_KEY!,
+    },
+  })
 }
 
 export async function uploadToR2(
   localPath: string,
   exportId: string
 ): Promise<string> {
-  const s3 = getS3Client()
+  const s3 = createS3Client()
   const key = `exports/${exportId}.mp4`
   const fileStats = fs.statSync(localPath)
   const sizeMB = (fileStats.size / 1024 / 1024).toFixed(1)
@@ -63,10 +58,17 @@ export async function uploadToR2(
     console.log(`[Upload] Progress: ${uploaded}MB / ${sizeMB}MB`)
   })
 
-  await upload.done()
+  try {
+    await upload.done()
+  } finally {
+    // Destroy the client to release TCP connections — prevents hang on next job
+    s3.destroy()
+    console.log(`[Upload] S3 client destroyed (connections released)`)
+  }
 
   const publicUrl = `${process.env.R2_PUBLIC_DOMAIN}/${key}`
   console.log(`[Upload] ✅ Upload complete: ${publicUrl} (${sizeMB}MB)`)
 
   return publicUrl
 }
+
