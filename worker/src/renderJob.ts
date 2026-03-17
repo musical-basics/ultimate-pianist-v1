@@ -169,11 +169,13 @@ export async function processRenderJob(job: Job<RenderJobPayload>): Promise<void
     // ─── Wait for web fonts (Bravura music font) to load ──────────
     console.log('[Render] Waiting for web fonts to load...')
     await page.evaluateHandle('document.fonts.ready')
-    const fontStatus = await page.evaluate(() => {
-      const fonts: string[] = []
-      document.fonts.forEach(f => fonts.push(`${f.family} (${f.status})`))
-      return fonts.join(', ')
-    })
+    const fontStatus = await page.evaluate(`
+      (() => {
+        const fonts = [];
+        document.fonts.forEach(f => fonts.push(f.family + ' (' + f.status + ')'));
+        return fonts.join(', ');
+      })()
+    `)
     console.log(`[Render] ✅ Fonts loaded: ${fontStatus}`)
 
     // Brief settle delay to let font rendering flush into the DOM
