@@ -158,3 +158,14 @@ body.studio-mode *::after {
     transition-duration: 0s !important;
     animation-duration: 0s !important;
 }
+
+/* Re-enable transitions ONLY on note elements for smooth pop/jump/glow
+   in exported video — the more-specific selector overrides the * rule */
+body.studio-mode .vf-stavenote {
+    transition: transform 0.1s ease-out, filter 0.15s ease-out !important;
+}
+body.studio-mode .vf-stavenote path,
+body.studio-mode .vf-stavenote rect,
+body.studio-mode .vf-stavenote text {
+    transition: fill 0.1s ease-out, stroke 0.1s ease-out !important;
+}
