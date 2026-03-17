@@ -555,11 +555,12 @@ const ScrollViewComponent: React.FC<ScrollViewProps> = ({
                             if (glowEffect) tFilter = `drop-shadow(0 0 6px ${dynShadow})`
                             // Skip pop/jump for notes with grace notes — transformBox:fill-box
                             // creates a wide bounding box and scale from center causes fly-in
-                            // Also skip in studio mode — CSS transitions are disabled, so
-                            // transforms snap instantly causing visual teleporting at 30fps
                             const isStudio = !!(window as any).__STUDIO_MODE__
-                            if (!note.hasGrace && !isStudio) {
-                                tTransform = `scale(${popEffect ? 1.4 : 1}) translateY(${jumpEffect ? -10 : 0}px)`
+                            if (!note.hasGrace) {
+                                // Studio mode: use reduced magnitudes (no CSS transitions at 30fps)
+                                const popScale = popEffect ? (isStudio ? 1.25 : 1.4) : 1
+                                const jumpPx = jumpEffect ? (isStudio ? -6 : -10) : 0
+                                tTransform = `scale(${popScale}) translateY(${jumpPx}px)`
                             }
                         }
 

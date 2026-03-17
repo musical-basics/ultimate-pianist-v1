@@ -49,6 +49,8 @@ export default function RenderView() {
   const setPreviewEffects = useAppStore((s) => s.setPreviewEffects)
   const setHighlightNote = useAppStore((s) => s.setHighlightNote)
   const setGlowEffect = useAppStore((s) => s.setGlowEffect)
+  const setPopEffect = useAppStore((s) => s.setPopEffect)
+  const setJumpEffect = useAppStore((s) => s.setJumpEffect)
 
   // TODO: In production, fetch config by [id] param from Supabase.
   // For now, uses the hardcoded DEMO_CONFIG.
@@ -74,12 +76,14 @@ export default function RenderView() {
     setPreviewEffects(true)   // Critical: enables note coloring/animation
     setHighlightNote(true)    // Critical: enables note highlighting
     setGlowEffect(true)       // Critical: enables glow on active notes
+    setPopEffect(true)        // Critical: enables pop scale on active notes
+    setJumpEffect(true)       // Critical: enables jump translateY on active notes
 
     return () => {
       document.body.classList.remove('studio-mode')
       window.__STUDIO_MODE__ = false
     }
-  }, [setNoteGlow, setVelocityKeyColor, setShowScore, setShowWaterfall, setPreviewEffects, setHighlightNote, setGlowEffect])
+  }, [setNoteGlow, setVelocityKeyColor, setShowScore, setShowWaterfall, setPreviewEffects, setHighlightNote, setGlowEffect, setPopEffect, setJumpEffect])
 
   // ─── Load config ─────────────────────────────────────────────────
   useEffect(() => {
