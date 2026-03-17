@@ -283,11 +283,21 @@ export async function processRenderJob(job: Job<RenderJobPayload>): Promise<void
     // ─── Step 39: Close FFmpeg pipe ──────────────────────────────
     console.log('[Render] All frames sent, closing FFmpeg stdin...')
     ffmpeg.stdin!.end()
-    await waitForFFmpeg(ffmpeg)
+
+    console.log('[Render] Waiting for FFmpeg to exit...')
+    await Promise.race([
+      waitForFFmpeg(ffmpeg),
+      new Promise<void>((_, reject) =>
+        setTimeout(() => reject(new Error('waitForFFmpeg timed out after 30s')), 30_000)
+      ),
+    ])
+    console.log('[Render] FFmpeg exited successfully')
 
     // Close browser before upload (free RAM)
+    console.log('[Render] Closing browser...')
     await browser.close()
     browser = null
+    console.log('[Render] Browser closed')
 
     // ─── Step 40: Upload to R2 ───────────────────────────────────
     const fileSize = fs.statSync(outputPath).size
