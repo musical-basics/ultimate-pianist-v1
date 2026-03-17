@@ -46,6 +46,9 @@ export default function RenderView() {
   const setShowWaterfall = useAppStore((s) => s.setShowWaterfall)
   const setNoteGlow = useAppStore((s) => s.setNoteGlow)
   const setVelocityKeyColor = useAppStore((s) => s.setVelocityKeyColor)
+  const setPreviewEffects = useAppStore((s) => s.setPreviewEffects)
+  const setHighlightNote = useAppStore((s) => s.setHighlightNote)
+  const setGlowEffect = useAppStore((s) => s.setGlowEffect)
 
   // TODO: In production, fetch config by [id] param from Supabase.
   // For now, uses the hardcoded DEMO_CONFIG.
@@ -63,17 +66,20 @@ export default function RenderView() {
     document.body.style.margin = '0'
     document.body.style.padding = '0'
 
-    // Enable visual effects for export
+    // Enable ALL visual effects for export
     setNoteGlow(true)
     setVelocityKeyColor(true)
     setShowScore(true)
     setShowWaterfall(true)
+    setPreviewEffects(true)   // Critical: enables note coloring/animation
+    setHighlightNote(true)    // Critical: enables note highlighting
+    setGlowEffect(true)       // Critical: enables glow on active notes
 
     return () => {
       document.body.classList.remove('studio-mode')
       window.__STUDIO_MODE__ = false
     }
-  }, [setNoteGlow, setVelocityKeyColor, setShowScore, setShowWaterfall])
+  }, [setNoteGlow, setVelocityKeyColor, setShowScore, setShowWaterfall, setPreviewEffects, setHighlightNote, setGlowEffect])
 
   // ─── Load config ─────────────────────────────────────────────────
   useEffect(() => {

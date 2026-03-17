@@ -2,11 +2,13 @@
  * Client-Side Video Export — Hybrid Native Canvas Compositor
  *
  * Ultra-fast compositing by bypassing DOM serialization:
- * 1. Sheet music: XMLSerializer → Blob → Image → drawImage (~5ms/frame)
- * 2. Waterfall: zero-copy drawImage from PixiJS WebGL canvas (~0.1ms)
- * 3. Piano keyboard: pure Canvas2D rectangles (~0.1ms)
+ * 1. Sheet music: XMLSerializer → SVG + inlined fonts → Image → drawImage
+ * 2. Waterfall: zero-copy drawImage from PixiJS WebGL canvas
+ * 3. Piano keyboard: pure Canvas2D rectangles
  *
- * Target: ~40 seconds for a 2-minute song (vs 97min with html-to-image)
+ * Font fix: Bravura/BravuraText/Academico woff2 files are fetched once at
+ * export start, base64-encoded, and injected as @font-face rules into the
+ * serialized SVG so the Image element can render music glyphs.
  */
 
 import { Muxer, ArrayBufferTarget } from 'mp4-muxer'
@@ -18,9 +20,9 @@ import { useAppStore } from '@/lib/store'
 export interface LocalExportOptions {
   audioUrl: string
   durationSec: number
-  fps?: number           // Default: 30
-  width?: number         // Default: 1920
-  height?: number        // Default: 1080
+  fps?: number
+  width?: number
+  height?: number
   onProgress?: (frame: number, totalFrames: number, phase: string) => void
   onComplete?: (url: string) => void
   onError?: (error: Error) => void
@@ -40,6 +42,42 @@ declare global {
   }
 }
 
+// ─── Font CDN URLs (from DreamFlow/VexFlow) ───────────────────────
+const FONT_CDN = 'https://cdn.jsdelivr.net/npm/@vexflow-fonts/'
+const FONTS_TO_EMBED: { name: string; file: string }[] = [
+  { name: 'Bravura', file: 'bravura/bravura.woff2' },
+  { name: 'Bravura Text', file: 'bravuratext/bravuratext.woff2' },
+  { name: 'Academico', file: 'academico/academico.woff2' },
+]
+
+// ─── Fetch and base64-encode fonts for SVG embedding ──────────────
+async function loadFontsAsBase64(): Promise<string> {
+  const rules: string[] = []
+
+  for (const font of FONTS_TO_EMBED) {
+    try {
+      const resp = await fetch(FONT_CDN + font.file)
+      const buf = await resp.arrayBuffer()
+      // Convert to base64 in chunks to avoid call stack overflow
+      const bytes = new Uint8Array(buf)
+      let binary = ''
+      const chunkSize = 8192
+      for (let i = 0; i < bytes.length; i += chunkSize) {
+        binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize))
+      }
+      const b64 = btoa(binary)
+      rules.push(
+        `@font-face { font-family: '${font.name}'; src: url('data:font/woff2;base64,${b64}') format('woff2'); font-weight: normal; font-style: normal; }`
+      )
+      console.log(`[LocalExport] Font loaded: ${font.name} (${(buf.byteLength / 1024).toFixed(0)}KB)`)
+    } catch (e) {
+      console.warn(`[LocalExport] Failed to load font ${font.name}:`, e)
+    }
+  }
+
+  return rules.join('\n')
+}
+
 // ─── Piano Keyboard Renderer (Canvas2D) ───────────────────────────
 function drawPianoKeyboard(
   ctx: CanvasRenderingContext2D,
@@ -53,64 +91,50 @@ function drawPianoKeyboard(
   const colors = engine?.activeColorThisFrame as (string | null)[] | undefined
   const useVelColor = useAppStore.getState().velocityKeyColor
 
-  // Background
   ctx.fillStyle = '#18181b'
   ctx.fillRect(0, y, w, h)
 
   const blackKeyH = h * 0.65
 
-  // Pass 1: White keys
+  // White keys
   for (let pitch = MIDI_MIN; pitch <= MIDI_MAX; pitch++) {
     if (isBlackKey(pitch)) continue
     const key = pianoMetrics.keys.get(pitch)
     if (!key) continue
-
-    const isActive = active?.[pitch]
-    if (isActive) {
-      ctx.fillStyle = useVelColor && colors?.[pitch] ? colors[pitch]! : '#a855f7'
-    } else {
-      ctx.fillStyle = '#ffffff'
-    }
+    ctx.fillStyle = active?.[pitch]
+      ? (useVelColor && colors?.[pitch] ? colors[pitch]! : '#a855f7')
+      : '#ffffff'
     ctx.fillRect(key.x, y, key.width, h)
-
-    // Key border
     ctx.strokeStyle = '#d4d4d8'
     ctx.lineWidth = 0.5
     ctx.strokeRect(key.x, y, key.width, h)
   }
 
-  // Pass 2: Black keys (on top)
+  // Black keys (on top)
   for (let pitch = MIDI_MIN; pitch <= MIDI_MAX; pitch++) {
     if (!isBlackKey(pitch)) continue
     const key = pianoMetrics.keys.get(pitch)
     if (!key) continue
-
-    const isActive = active?.[pitch]
-    if (isActive) {
-      ctx.fillStyle = useVelColor && colors?.[pitch] ? colors[pitch]! : '#a855f7'
-    } else {
-      ctx.fillStyle = '#18181b'
-    }
+    ctx.fillStyle = active?.[pitch]
+      ? (useVelColor && colors?.[pitch] ? colors[pitch]! : '#a855f7')
+      : '#18181b'
     ctx.fillRect(key.x, y, key.width, blackKeyH)
-
-    // Subtle border for definition
     ctx.strokeStyle = '#000000'
     ctx.lineWidth = 0.5
     ctx.strokeRect(key.x, y, key.width, blackKeyH)
   }
 }
 
-// ─── Score Renderer (SVG Serialization) ───────────────────────────
+// ─── Score Renderer (SVG + embedded fonts) ────────────────────────
 async function drawScore(
   ctx: CanvasRenderingContext2D,
   y: number,
   w: number,
   h: number,
-  scoreSvgCache: { img: HTMLImageElement | null }
+  fontCSS: string,
+  svgImageCache: { lastScrollX: number; img: HTMLImageElement | null; svgW: number; svgH: number }
 ): Promise<void> {
   const darkMode = useAppStore.getState().darkMode
-
-  // Background
   ctx.fillStyle = darkMode ? '#18181b' : '#ffffff'
   ctx.fillRect(0, y, w, h)
 
@@ -120,43 +144,68 @@ async function drawScore(
   const svgEl = scrollContainer.querySelector('svg')
   if (!svgEl) return
 
-  // Serialize the SVG to a data URL
-  let svgStr = new XMLSerializer().serializeToString(svgEl)
-  if (!svgStr.includes('xmlns=')) {
-    svgStr = svgStr.replace('<svg ', '<svg xmlns="http://www.w3.org/2000/svg" ')
+  const scrollX = scrollContainer.scrollLeft || 0
+
+  // Only re-serialize SVG if scroll position changed significantly
+  // (avoids re-serializing 30 times per second when not scrolling)
+  const scrollChanged = Math.abs(scrollX - svgImageCache.lastScrollX) > 0.5 || !svgImageCache.img
+
+  if (scrollChanged) {
+    // Serialize the live SVG with embedded fonts
+    let svgStr = new XMLSerializer().serializeToString(svgEl)
+    if (!svgStr.includes('xmlns=')) {
+      svgStr = svgStr.replace('<svg ', '<svg xmlns="http://www.w3.org/2000/svg" ')
+    }
+    // Ensure xlink namespace for any use/href elements
+    if (!svgStr.includes('xmlns:xlink')) {
+      svgStr = svgStr.replace('<svg ', '<svg xmlns:xlink="http://www.w3.org/1999/xlink" ')
+    }
+
+    // Inject font CSS into the SVG
+    const styleTag = `<defs><style type="text/css">${fontCSS}</style></defs>`
+    // Insert after the opening <svg ...> tag
+    const svgOpenEnd = svgStr.indexOf('>') + 1
+    svgStr = svgStr.slice(0, svgOpenEnd) + styleTag + svgStr.slice(svgOpenEnd)
+
+    const blob = new Blob([svgStr], { type: 'image/svg+xml;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+
+    try {
+      const img = new Image()
+      img.src = url
+      await new Promise<void>((resolve, reject) => {
+        img.onload = () => resolve()
+        img.onerror = (e) => {
+          console.warn('[LocalExport] SVG image load failed:', e)
+          reject(new Error('SVG load failed'))
+        }
+      })
+      svgImageCache.img = img
+      svgImageCache.svgW = img.naturalWidth
+      svgImageCache.svgH = img.naturalHeight
+      svgImageCache.lastScrollX = scrollX
+    } catch {
+      // If SVG fails to load, skip this frame's score
+      return
+    } finally {
+      URL.revokeObjectURL(url)
+    }
   }
 
-  const blob = new Blob([svgStr], { type: 'image/svg+xml;charset=utf-8' })
-  const url = URL.createObjectURL(blob)
+  if (!svgImageCache.img) return
 
-  try {
-    const img = new Image()
-    img.src = url
-    await new Promise<void>((resolve, reject) => {
-      img.onload = () => resolve()
-      img.onerror = () => reject(new Error('SVG load failed'))
-    })
+  // Scale SVG to fit the score area
+  const scale = h / svgImageCache.svgH
 
-    // Draw with scroll offset
-    const scrollX = scrollContainer.scrollLeft || 0
-
-    // Scale SVG to fit the score area height
-    const svgW = img.naturalWidth
-    const svgH = img.naturalHeight
-    const scale = h / svgH
-
-    ctx.save()
-    ctx.beginPath()
-    ctx.rect(0, y, w, h)
-    ctx.clip()
-    ctx.drawImage(img, -scrollX * scale, y, svgW * scale, h)
-    ctx.restore()
-  } finally {
-    URL.revokeObjectURL(url)
-  }
+  ctx.save()
+  ctx.beginPath()
+  ctx.rect(0, y, w, h)
+  ctx.clip()
+  ctx.drawImage(svgImageCache.img, -scrollX * scale, y, svgImageCache.svgW * scale, h)
+  ctx.restore()
 }
 
-// ─── Cursor Renderer ──────────────────────────────────────────────
+// ─── Cursor Overlay ───────────────────────────────────────────────
 function drawCursor(
   ctx: CanvasRenderingContext2D,
   y: number,
@@ -168,29 +217,18 @@ function drawCursor(
   const scrollContainer = window.__SCORE_SCROLL_CONTAINER__
   const scrollX = scrollContainer?.scrollLeft || 0
 
-  // Parse cursor X from transform
-  const transform = cursor.style.transform || ''
-  const match = transform.match(/translateX\(([^p]+)px\)/)
+  const match = (cursor.style.transform || '').match(/translateX\(([^p]+)px\)/)
   const cursorX = match ? parseFloat(match[1]) : 0
-
-  // Parse cursor top offset
   const cursorTop = parseFloat(cursor.style.top || '0')
   const cursorHeight = parseFloat(cursor.style.height || '100')
 
-  // Scale factor: the SVG rendering in drawScore uses the score area height
-  // The cursor positions are in the SVG's coordinate space
   const svgEl = scrollContainer?.querySelector('svg')
   const svgH = svgEl?.getBoundingClientRect().height || h
   const scale = h / svgH
 
   ctx.fillStyle = '#10B981'
   ctx.globalAlpha = 0.85
-  ctx.fillRect(
-    (cursorX - scrollX) * scale,
-    y + cursorTop * scale,
-    2,
-    cursorHeight * scale
-  )
+  ctx.fillRect((cursorX - scrollX) * scale, y + cursorTop * scale, 2, cursorHeight * scale)
   ctx.globalAlpha = 1.0
 }
 
@@ -211,21 +249,20 @@ export async function exportVideoLocal(options: LocalExportOptions): Promise<voi
   const totalFrames = Math.ceil(durationSec * fps)
   const frameDurationUs = Math.round(1_000_000 / fps)
 
-  console.log(`[LocalExport] Hybrid compositor: ${totalFrames} frames at ${fps}fps, ${width}x${height}`)
+  console.log(`[LocalExport] Hybrid compositor: ${totalFrames} frames @ ${fps}fps, ${width}x${height}`)
 
-  // ─── Layout proportions ────────────────────────────────────────
+  // ─── Layout ────────────────────────────────────────────────────
   const scoreH = Math.round(height * 0.45)
   const keyboardH = 160
   const waterfallH = height - scoreH - keyboardH
 
-  // ─── Pre-calculate piano metrics ───────────────────────────────
   const pianoMetrics = calculatePianoMetrics(width)
 
-  // ─── Create master compositing canvas ──────────────────────────
+  // ─── Master compositing canvas ─────────────────────────────────
   const masterCanvas = document.createElement('canvas')
   masterCanvas.width = width
   masterCanvas.height = height
-  const ctx = masterCanvas.getContext('2d', { alpha: false, willReadFrequently: false })!
+  const ctx = masterCanvas.getContext('2d', { alpha: false })!
 
   // ─── Enter studio mode ─────────────────────────────────────────
   const wasStudio = window.__STUDIO_MODE__
@@ -235,25 +272,35 @@ export async function exportVideoLocal(options: LocalExportOptions): Promise<voi
   window.__EXPORT_FPS__ = fps
   pm.setStudioMode(true)
 
-  // Set up __UPDATE_SCORE__ for the local export if not already set
-  // (ScrollView's useEffect may not have run with studio mode)
-  const scrollContainer = window.__SCORE_SCROLL_CONTAINER__
-  if (scrollContainer && !window.__UPDATE_SCORE__) {
-    // Create a simple update function that reads the current visual time
-    ;(window as any).__UPDATE_SCORE__ = () => {
-      // Force the score cursor to re-render by dispatching a custom event
-      // or by reading from PlaybackManager directly
-      // (The cursor position is driven by the waterfall renderer's active notes)
-    }
-  }
-
   try {
-    // ─── Decode audio ────────────────────────────────────────────
+    // ─── 1. Load & embed fonts (one-time) ────────────────────────
+    onProgress?.(0, totalFrames, 'Loading fonts...')
+    const fontCSS = await loadFontsAsBase64()
+    console.log(`[LocalExport] Fonts embedded (${fontCSS.length} chars of CSS)`)
+
+    // ─── 2. Decode audio ─────────────────────────────────────────
     onProgress?.(0, totalFrames, 'Decoding audio...')
     const audioBuffer = await decodeAudio(audioUrl)
     console.log(`[LocalExport] Audio: ${audioBuffer.duration.toFixed(1)}s, ${audioBuffer.sampleRate}Hz`)
 
-    // ─── Set up mp4-muxer ────────────────────────────────────────
+    // ─── 3. Resize PixiJS to export resolution ──────────────────
+    const engine = window.__WATERFALL_ENGINE__
+    let originalWidth = 0
+    let originalHeight = 0
+    if (engine?.app?.renderer) {
+      originalWidth = engine.app.renderer.width
+      originalHeight = engine.app.renderer.height
+      engine.app.renderer.resize(width, waterfallH)
+      // Also update the canvas CSS so it doesn't mess up layout during export
+      const pixiCanvas = engine.app.canvas as HTMLCanvasElement
+      if (pixiCanvas) {
+        pixiCanvas.style.width = `${width}px`
+        pixiCanvas.style.height = `${waterfallH}px`
+      }
+      console.log(`[LocalExport] PixiJS resized: ${originalWidth}x${originalHeight} → ${width}x${waterfallH}`)
+    }
+
+    // ─── 4. Set up mp4-muxer ─────────────────────────────────────
     const target = new ArrayBufferTarget()
     const muxer = new Muxer({
       target,
@@ -266,7 +313,7 @@ export async function exportVideoLocal(options: LocalExportOptions): Promise<voi
       fastStart: 'in-memory',
     })
 
-    // ─── Set up VideoEncoder ─────────────────────────────────────
+    // ─── 5. VideoEncoder ─────────────────────────────────────────
     const videoEncoder = new VideoEncoder({
       output: (chunk, meta) => muxer.addVideoChunk(chunk, meta ?? undefined),
       error: (e) => {
@@ -279,11 +326,11 @@ export async function exportVideoLocal(options: LocalExportOptions): Promise<voi
       codec: 'avc1.640028',
       width,
       height,
-      bitrate: 12_000_000,  // 12 Mbps for crisp UI
+      bitrate: 12_000_000,
       framerate: fps,
     })
 
-    // ─── Set up AudioEncoder ─────────────────────────────────────
+    // ─── 6. AudioEncoder ─────────────────────────────────────────
     const audioEncoder = new AudioEncoder({
       output: (chunk, meta) => muxer.addAudioChunk(chunk, meta ?? undefined),
       error: (e) => {
@@ -299,64 +346,52 @@ export async function exportVideoLocal(options: LocalExportOptions): Promise<voi
       bitrate: 192_000,
     })
 
-    // ─── Encode audio ────────────────────────────────────────────
+    // ─── 7. Encode audio ─────────────────────────────────────────
     onProgress?.(0, totalFrames, 'Encoding audio...')
     await encodeAudioBuffer(audioEncoder, audioBuffer)
-    console.log('[LocalExport] Audio queued')
 
-    // ─── SVG cache for score ─────────────────────────────────────
-    const scoreSvgCache = { img: null as HTMLImageElement | null }
+    // ─── 8. SVG cache ────────────────────────────────────────────
+    const svgImageCache = { lastScrollX: -999, img: null as HTMLImageElement | null, svgW: 0, svgH: 0 }
 
-    // ─── Deterministic Render Loop ───────────────────────────────
+    // ─── 9. Deterministic Render Loop ────────────────────────────
     const startTime = Date.now()
 
     for (let frame = 0; frame < totalFrames; frame++) {
       const timeSec = frame / fps
 
-      // Step 21: Advance the deterministic clock
+      // Advance clock
       pm.setManualTime(timeSec)
+      window.__RENDER_WATERFALL?.()
+      window.__UPDATE_SCORE__?.()
 
-      // Force PixiJS waterfall render
-      if (window.__RENDER_WATERFALL) {
-        window.__RENDER_WATERFALL()
-      }
-
-      // Force score cursor update
-      if (window.__UPDATE_SCORE__) {
-        window.__UPDATE_SCORE__()
-      }
-
-      // Step 22: Composite the layers onto the master canvas
-      // Background
+      // Composite onto master canvas
       ctx.fillStyle = '#09090b'
       ctx.fillRect(0, 0, width, height)
 
-      // Layer 1: Sheet music SVG (~5ms)
-      await drawScore(ctx, 0, width, scoreH, scoreSvgCache)
+      // Layer 1: Sheet music + fonts
+      await drawScore(ctx, 0, width, scoreH, fontCSS, svgImageCache)
 
-      // Layer 1b: Cursor overlay
+      // Layer 1b: Cursor
       drawCursor(ctx, 0, scoreH)
 
-      // Layer 2: Waterfall — zero-copy from PixiJS GPU canvas (~0.1ms)
+      // Layer 2: Waterfall (zero-copy from resized PixiJS)
       const pixiCanvas = window.__WATERFALL_CANVAS__
       if (pixiCanvas) {
         ctx.drawImage(pixiCanvas, 0, scoreH, width, waterfallH)
       }
 
-      // Layer 3: Piano keyboard — Canvas2D (~0.1ms)
+      // Layer 3: Piano keyboard
       drawPianoKeyboard(ctx, scoreH + waterfallH, width, keyboardH, pianoMetrics)
 
-      // Create VideoFrame from the composite
+      // Encode frame
       const videoFrame = new VideoFrame(masterCanvas, {
         timestamp: frame * frameDurationUs,
         duration: frameDurationUs,
       })
-
-      const isKeyframe = frame % (fps * 2) === 0
-      videoEncoder.encode(videoFrame, { keyFrame: isKeyframe })
+      videoEncoder.encode(videoFrame, { keyFrame: frame % (fps * 2) === 0 })
       videoFrame.close()
 
-      // Progress & ETA reporting
+      // Progress
       if (frame % fps === 0) {
         const elapsed = (Date.now() - startTime) / 1000
         const fpsActual = frame / elapsed || 0
@@ -365,18 +400,18 @@ export async function exportVideoLocal(options: LocalExportOptions): Promise<voi
         console.log(`[LocalExport] F${frame}/${totalFrames} (${Math.round(frame / totalFrames * 100)}%) — ${fpsActual.toFixed(1)}fps — ETA ${eta}s`)
       }
 
-      // Yield to main thread + GC breathing room
-      if (frame % 10 === 0) {
+      // Yield + GC
+      if (frame % 5 === 0) {
         await new Promise(r => setTimeout(r, 0))
       }
 
-      // Step 24: Backpressure
+      // Backpressure
       while (videoEncoder.encodeQueueSize > 5) {
         await new Promise(r => setTimeout(r, 10))
       }
     }
 
-    // ─── Flush & Finalize ────────────────────────────────────────
+    // ─── 10. Finalize ────────────────────────────────────────────
     onProgress?.(totalFrames, totalFrames, 'Finalizing...')
     await videoEncoder.flush()
     await audioEncoder.flush()
@@ -386,7 +421,7 @@ export async function exportVideoLocal(options: LocalExportOptions): Promise<voi
 
     const totalTime = ((Date.now() - startTime) / 1000).toFixed(1)
 
-    // ─── Download ────────────────────────────────────────────────
+    // ─── 11. Download ────────────────────────────────────────────
     const blob = new Blob([target.buffer], { type: 'video/mp4' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
@@ -402,6 +437,21 @@ export async function exportVideoLocal(options: LocalExportOptions): Promise<voi
     onComplete?.(url)
 
   } finally {
+    // ─── 12. Restore PixiJS resolution ───────────────────────────
+    const engine = window.__WATERFALL_ENGINE__
+    if (engine?.app?.renderer && arguments[0]) {
+      // Restore to container size
+      const container = engine.canvasContainer as HTMLElement
+      if (container) {
+        engine.app.renderer.resize(container.clientWidth, container.clientHeight)
+        const pixiCanvas = engine.app.canvas as HTMLCanvasElement
+        if (pixiCanvas) {
+          pixiCanvas.style.width = '100%'
+          pixiCanvas.style.height = '100%'
+        }
+      }
+    }
+
     window.__STUDIO_MODE__ = wasStudio
     window.__EXPORT_FPS__ = 0
     pm.setStudioMode(wasStudio)
@@ -412,33 +462,31 @@ export async function exportVideoLocal(options: LocalExportOptions): Promise<voi
 
 // ─── Audio Utilities ───────────────────────────────────────────────
 async function decodeAudio(url: string): Promise<AudioBuffer> {
-  const response = await fetch(url)
-  const arrayBuffer = await response.arrayBuffer()
-  const audioCtx = new OfflineAudioContext(2, 1, 44100)
-  return audioCtx.decodeAudioData(arrayBuffer)
+  const resp = await fetch(url)
+  const buf = await resp.arrayBuffer()
+  const ctx = new OfflineAudioContext(2, 1, 44100)
+  return ctx.decodeAudioData(buf)
 }
 
 async function encodeAudioBuffer(encoder: AudioEncoder, audioBuffer: AudioBuffer): Promise<void> {
-  const sampleRate = audioBuffer.sampleRate
-  const numberOfChannels = audioBuffer.numberOfChannels
-  const totalSamples = audioBuffer.length
+  const { sampleRate, numberOfChannels, length: totalSamples } = audioBuffer
   const chunkSize = 1024
 
   for (let offset = 0; offset < totalSamples; offset += chunkSize) {
-    const samplesInChunk = Math.min(chunkSize, totalSamples - offset)
-    const planar = new Float32Array(samplesInChunk * numberOfChannels)
+    const n = Math.min(chunkSize, totalSamples - offset)
+    const planar = new Float32Array(n * numberOfChannels)
 
     for (let ch = 0; ch < numberOfChannels; ch++) {
-      const channelData = audioBuffer.getChannelData(ch)
-      for (let i = 0; i < samplesInChunk; i++) {
-        planar[ch * samplesInChunk + i] = channelData[offset + i]
+      const src = audioBuffer.getChannelData(ch)
+      for (let i = 0; i < n; i++) {
+        planar[ch * n + i] = src[offset + i]
       }
     }
 
     const audioData = new AudioData({
       format: 'f32-planar' as AudioSampleFormat,
       sampleRate,
-      numberOfFrames: samplesInChunk,
+      numberOfFrames: n,
       numberOfChannels,
       timestamp: Math.round((offset / sampleRate) * 1_000_000),
       data: planar.buffer as ArrayBuffer,
