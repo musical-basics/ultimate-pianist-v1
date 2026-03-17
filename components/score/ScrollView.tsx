@@ -580,6 +580,10 @@ const ScrollViewComponent: React.FC<ScrollViewProps> = ({
     useEffect(() => {
         if (!isLoaded) return
 
+        // Expose refs for local export compositor (always, not just studio mode)
+        ;(window as any).__SCORE_SCROLL_CONTAINER__ = scrollContainerRef.current
+        ;(window as any).__SCORE_CURSOR__ = cursorRef.current
+
         // In studio mode, kill the async loop and expose a synchronous updater
         if ((window as any).__STUDIO_MODE__) {
             (window as any).__UPDATE_SCORE__ = () => {

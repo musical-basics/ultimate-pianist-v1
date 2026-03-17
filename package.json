@@ -49,7 +49,6 @@
     "date-fns": "4.1.0",
     "dreamflow": "github:musical-basics/dreamflow",
     "embla-carousel-react": "8.6.0",
-    "html-to-image": "^1.11.13",
     "input-otp": "1.4.2",
     "ioredis": "^5.10.0",
     "lucide-react": "^0.564.0",
