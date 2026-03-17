@@ -1,14 +1,13 @@
 /**
  * R2 Upload Utility — Cloudflare R2 via AWS S3 SDK
  *
- * Step 40: Uploads the final MP4 to Cloudflare R2 and returns the public URL.
- *
- * KEY FIX: Uses fs.readFileSync (buffered) instead of createReadStream
- * because AWS SDK v3 streaming uploads to R2 can hang silently.
- * Also adds requestTimeout and AbortSignal for safety.
+ * Uses @aws-sdk/lib-storage Upload class for multipart chunked uploads.
+ * This bypasses the R2 stream-hanging bug in PutObjectCommand by
+ * automatically handling chunking and concurrency.
  */
 
-import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3'
+import { S3Client } from '@aws-sdk/client-s3'
+import { Upload } from '@aws-sdk/lib-storage'
 import fs from 'fs'
 
 let _s3: S3Client | null = null
@@ -27,10 +26,6 @@ function getS3Client(): S3Client {
         accessKeyId: process.env.R2_ACCESS_KEY_ID!,
         secretAccessKey: process.env.R2_SECRET_ACCESS_KEY!,
       },
-      // Prevent silent hangs
-      requestHandler: {
-        requestTimeout: 60_000, // 60 second timeout per request
-      } as any,
     })
   }
   return _s3
@@ -45,34 +40,30 @@ export async function uploadToR2(
   const fileStats = fs.statSync(localPath)
   const sizeMB = (fileStats.size / 1024 / 1024).toFixed(1)
 
-  console.log(`[Upload] Reading file into memory: ${localPath} (${sizeMB}MB)`)
+  console.log(`[Upload] Starting multipart upload: ${localPath} (${sizeMB}MB) → R2:${key}`)
 
-  // Read entire file into buffer (avoids streaming hang)
-  const fileBuffer = fs.readFileSync(localPath)
+  const fileStream = fs.createReadStream(localPath)
 
-  console.log(`[Upload] Uploading ${sizeMB}MB → R2:${key}`)
+  const upload = new Upload({
+    client: s3,
+    params: {
+      Bucket: process.env.R2_BUCKET_NAME!,
+      Key: key,
+      Body: fileStream,
+      ContentType: 'video/mp4',
+    },
+    // 5MB chunks, 4 concurrent parts
+    queueSize: 4,
+    partSize: 5 * 1024 * 1024,
+    leavePartsOnError: false,
+  })
 
-  // Create an AbortController with 90s timeout as final safety net
-  const controller = new AbortController()
-  const timeoutId = setTimeout(() => {
-    console.error('[Upload] ⛔ AbortController timeout (90s) — aborting upload')
-    controller.abort()
-  }, 90_000)
+  upload.on('httpUploadProgress', (progress) => {
+    const uploaded = progress.loaded ? (progress.loaded / 1024 / 1024).toFixed(1) : '?'
+    console.log(`[Upload] Progress: ${uploaded}MB / ${sizeMB}MB`)
+  })
 
-  try {
-    await s3.send(
-      new PutObjectCommand({
-        Bucket: process.env.R2_BUCKET_NAME!,
-        Key: key,
-        Body: fileBuffer,
-        ContentType: 'video/mp4',
-        ContentLength: fileStats.size,
-      }),
-      { abortSignal: controller.signal }
-    )
-  } finally {
-    clearTimeout(timeoutId)
-  }
+  await upload.done()
 
   const publicUrl = `${process.env.R2_PUBLIC_DOMAIN}/${key}`
   console.log(`[Upload] ✅ Upload complete: ${publicUrl} (${sizeMB}MB)`)
