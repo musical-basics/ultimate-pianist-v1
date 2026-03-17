@@ -376,7 +376,13 @@ const ScrollViewComponent: React.FC<ScrollViewProps> = ({
         if (!isLoaded || noteMap.current.size === 0) return
         bakeMidiOntoNotes(noteMap.current, parsedMidi, anchors, beatAnchors)
         // Invalidate active state so notes re-render with new colors
-        noteMap.current.forEach(notes => notes.forEach(n => { n.isActive = undefined }))
+        noteMap.current.forEach(notes => notes.forEach(n => { 
+            n.isActive = undefined
+            n.activeSince = undefined
+            n.deactivatedAt = undefined
+            n.animProgress = undefined
+            n.currentTransform = undefined
+        }))
     }, [isLoaded, parsedMidi, anchors, beatAnchors])
     useEffect(() => {
         const baseColor = darkMode ? '#e0e0e0' : '#000000'
@@ -386,8 +392,14 @@ const ScrollViewComponent: React.FC<ScrollViewProps> = ({
         if (scrollContainerRef.current) scrollContainerRef.current.style.backgroundColor = bgColor
         if (curtainRef.current) curtainRef.current.style.backgroundColor = bgColor
 
-        // Invalidate isActive state so notes re-render immediately when toggling settings
-        noteMap.current.forEach(notes => notes.forEach(n => { n.isActive = undefined }))
+        // Invalidate active state so notes re-render immediately when toggling settings
+        noteMap.current.forEach(notes => notes.forEach(n => {
+            n.isActive = undefined
+            n.activeSince = undefined
+            n.deactivatedAt = undefined
+            n.animProgress = undefined
+            n.currentTransform = undefined
+        }))
     }, [darkMode, isLoaded, highlightNote, glowEffect, popEffect, jumpEffect, previewEffects, dynamicColor])
 
     // ─── Cursor Positioning (rewritten for VexFlow maps) ───────────
@@ -497,43 +509,14 @@ const ScrollViewComponent: React.FC<ScrollViewProps> = ({
                 }
             }
 
-            // Clean up ALL stale measures if we changed measure boundaries or did a rapid seek
+            // Clean up stale measure tracking if we changed measure boundaries
             if (currentMeasureIndex !== lastMeasureIndexRef.current) {
-                const defaultColor = darkMode ? '#e0e0e0' : '#000000'
-                noteMap.current.forEach((notes, mIdx) => {
-                    if (mIdx !== measure) {
-                        notes.forEach(n => {
-                            if (n.isActive) {
-                                n.isActive = false
-                                if (n.element) {
-                                    applyColor(n.element, defaultColor, n.pathsAndRects)
-                                    if (n.stemElement) applyColor(n.stemElement, defaultColor)
-                                    n.element.style.filter = 'none'
-                                    n.element.style.transform = 'scale(1) translateY(0)'
-                                }
-                            }
-                        })
-                    }
-                })
                 if (onMeasureChange) onMeasureChange(measure)
             }
             lastMeasureIndexRef.current = currentMeasureIndex
 
             // ─── Note Effects ────────────────────────
-            const notesInMeasure = noteMap.current.get(measure)
-            if (notesInMeasure && (!isAdmin || previewEffects)) {
-                let globalProgress = progress
-                if (isBeatInterpolation && beatXMapRef.current.has(measure)) {
-                    // FIX: Math calculation uses correct Time Signature instead of `.size`
-                    const timeSigNum = notesInMeasure[0]?.numerator || 4
-                    let nextBeat = posData.nextBeat
-                    if (posData.nextMeasure !== measure || !nextBeat) {
-                        nextBeat = timeSigNum + 1
-                    }
-                    const exactBeat = beat + (nextBeat - beat) * progress
-                    globalProgress = (exactBeat - 1) / timeSigNum
-                }
-
+            if (!isAdmin || previewEffects) {
                 const defaultColor = darkMode ? '#e0e0e0' : '#000000'
                 const fallbackHighlight = '#10B981'; const fallbackShadow = '#10B981'
 
@@ -542,37 +525,115 @@ const ScrollViewComponent: React.FC<ScrollViewProps> = ({
                 let diagActiveCount = 0, diagColoredCount = 0, diagPathCount = 0
                 let diagFillSample = '', diagVelocitySample = -1, diagPathFillAfter = ''
 
-                notesInMeasure.forEach(note => {
-                    if (!note.element) return
-                    if (note.isRest) return  // FIX: Don't pop or highlight rests!
+                let globalProgress = progress
+                if (isBeatInterpolation && beatXMapRef.current.has(measure)) {
+                    const notesInMeasure = noteMap.current.get(measure)
+                    const timeSigNum = notesInMeasure?.[0]?.numerator || 4
+                    let nextBeat = posData.nextBeat
+                    if (posData.nextMeasure !== measure || !nextBeat) {
+                        nextBeat = timeSigNum + 1
+                    }
+                    const exactBeat = beat + (nextBeat - beat) * progress
+                    globalProgress = (exactBeat - 1) / timeSigNum
+                }
 
-                    const lookahead = 0.08
-                    const noteEndThreshold = note.timestamp + 0.06
-                    const isActive = (globalProgress <= noteEndThreshold && globalProgress >= note.timestamp - lookahead)
+                noteMap.current.forEach((notes, mIdx) => {
+                    const isCurrentMeasure = mIdx === measure;
+                    
+                    let needsUpdate = isCurrentMeasure;
+                    if (!needsUpdate) {
+                        for (let i = 0; i < notes.length; i++) {
+                            if (notes[i].isActive || notes[i].activeSince !== undefined || notes[i].deactivatedAt !== undefined) {
+                                needsUpdate = true;
+                                break;
+                            }
+                        }
+                    }
+                    if (!needsUpdate) return;
 
-                    if (note.isActive !== isActive) {
-                        note.isActive = isActive
-                        let tFill = defaultColor, tFilter = 'none', tTransform = 'scale(1) translateY(0)'
+                    notes.forEach(note => {
+                        if (!note.element) return;
+                        if (note.isRest) {
+                            if (note.isActive) {
+                                note.isActive = false;
+                                note.currentTransform = 'scale(1) translateY(0px)';
+                                note.element.style.transform = note.currentTransform;
+                            }
+                            return;
+                        }
 
-                        if (isActive) {
-                            diagActiveCount++
+                        let isActive = false;
+                        if (isCurrentMeasure) {
+                            const lookahead = 0.08
+                            const noteEndThreshold = note.timestamp + 0.06
+                            isActive = (globalProgress <= noteEndThreshold && globalProgress >= note.timestamp - lookahead)
+                        }
+
+                        const isInitial = note.isActive === undefined;
+                        let stateChanged = false;
+                        if (note.isActive !== isActive) {
+                            note.isActive = isActive;
+                            stateChanged = true;
+                            
+                            if (isInitial) {
+                                note.animProgress = isActive ? 1 : 0;
+                                note.activeSince = undefined;
+                                note.deactivatedAt = undefined;
+                            } else {
+                                const currentLinear = note.animProgress ?? (isActive ? 0 : 1);
+                                if (isActive) {
+                                    note.activeSince = audioTime - (currentLinear * 0.1);
+                                    note.deactivatedAt = undefined;
+                                } else {
+                                    note.deactivatedAt = audioTime - ((1 - currentLinear) * 0.1);
+                                    note.activeSince = undefined;
+                                }
+                            }
+                        }
+
+                        let isAnimating = false;
+                        let newAnimProgress = note.animProgress ?? (note.isActive ? 1 : 0);
+
+                        if (note.isActive) {
+                            if (note.activeSince !== undefined) {
+                                const elapsed = audioTime - note.activeSince;
+                                if (elapsed < 0 || elapsed >= 0.1) {
+                                    newAnimProgress = 1;
+                                    note.activeSince = undefined;
+                                } else {
+                                    newAnimProgress = elapsed / 0.1;
+                                    isAnimating = true;
+                                }
+                            }
+                        } else {
+                            if (note.deactivatedAt !== undefined) {
+                                const elapsed = audioTime - note.deactivatedAt;
+                                if (elapsed < 0 || elapsed >= 0.1) {
+                                    newAnimProgress = 0;
+                                    note.deactivatedAt = undefined;
+                                } else {
+                                    newAnimProgress = 1 - (elapsed / 0.1);
+                                    isAnimating = true;
+                                }
+                            }
+                        }
+
+                        const progressChanged = note.animProgress !== newAnimProgress;
+                        note.animProgress = newAnimProgress;
+
+                        if (!stateChanged && !progressChanged && !isAnimating && !isInitial) return;
+
+                        let tFill = defaultColor, tFilter = 'none';
+
+                        if (note.isActive) {
+                            if (stateChanged && isCurrentMeasure) diagActiveCount++;
                             const useDynamic = dynamicColor && note.velocity !== undefined
                             const dynColor = useDynamic ? velocityToCSS(note.velocity!) : fallbackHighlight
                             const dynShadow = useDynamic ? velocityToCSS(note.velocity!) : fallbackShadow
                             if (highlightNote) tFill = dynColor
                             if (glowEffect) tFilter = `drop-shadow(0 0 6px ${dynShadow})`
-                            // Skip pop/jump for notes with grace notes — transformBox:fill-box
-                            // creates a wide bounding box and scale from center causes fly-in
-                            const isStudio = !!(window as any).__STUDIO_MODE__
-                            if (!note.hasGrace) {
-                                // At 60fps these match browser values — no need to reduce
-                                const popScale = popEffect ? 1.4 : 1
-                                const jumpPx = jumpEffect ? -10 : 0
-                                tTransform = `scale(${popScale}) translateY(${jumpPx}px)`
-                            }
 
-                            // DIAGNOSTIC: Capture actual color values
-                            if (isStudioDiag) {
+                            if (isStudioDiag && stateChanged && isCurrentMeasure) {
                                 diagColoredCount++
                                 diagPathCount += note.pathsAndRects?.length || 0
                                 diagFillSample = tFill
@@ -580,22 +641,34 @@ const ScrollViewComponent: React.FC<ScrollViewProps> = ({
                             }
                         }
 
-                        applyColor(note.element, tFill, note.pathsAndRects)
-                        if (note.stemElement) applyColor(note.stemElement, tFill)
-
-                        // DIAGNOSTIC: Verify path fill after applyColor
-                        if (isStudioDiag && isActive && note.pathsAndRects && note.pathsAndRects.length > 0) {
-                            const p = note.pathsAndRects[0]
-                            diagPathFillAfter = `style=${p.style.fill} attr=${p.getAttribute('fill')}`
+                        if (stateChanged || isInitial) {
+                            applyColor(note.element, tFill, note.pathsAndRects)
+                            if (note.stemElement) applyColor(note.stemElement, tFill)
+                            note.element.style.filter = tFilter
+                            
+                            if (isStudioDiag && note.isActive && note.pathsAndRects && note.pathsAndRects.length > 0) {
+                                const p = note.pathsAndRects[0]
+                                diagPathFillAfter = `style=${p.style.fill} attr=${p.getAttribute('fill')}`
+                            }
                         }
 
-                        // FIX: Apply transform & filter to the <g> group directly, not its sub-paths
-                        note.element.style.filter = tFilter
-                        note.element.style.transform = tTransform
-                    }
-                })
+                        let tTransform = 'scale(1) translateY(0px)'
+                        if (!note.hasGrace && note.animProgress > 0) {
+                            const ease = 1 - Math.pow(1 - note.animProgress, 3);
+                            const popScale = popEffect ? 1.4 : 1;
+                            const jumpPx = jumpEffect ? -10 : 0;
+                            const scale = 1 + (popScale - 1) * ease;
+                            const translateY = jumpPx * ease;
+                            tTransform = `scale(${scale.toFixed(4)}) translateY(${translateY.toFixed(2)}px)`
+                        }
 
-                // DIAGNOSTIC: Log every call in studio mode
+                        if (note.currentTransform !== tTransform || isInitial) {
+                            note.element.style.transform = tTransform;
+                            note.currentTransform = tTransform;
+                        }
+                    });
+                });
+
                 if (isStudioDiag && diagActiveCount > 0) {
                     console.log(`[HIGHLIGHT DIAG] M${measure} gP=${globalProgress.toFixed(3)} active=${diagActiveCount} paths=${diagPathCount} vel=${diagVelocitySample} tFill="${diagFillSample}" pathAfter="${diagPathFillAfter}"`)
                 }

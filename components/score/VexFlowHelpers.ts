@@ -29,6 +29,10 @@ export type NoteData = {
     absoluteX?: number
     isRevealed?: boolean
     isActive?: boolean
+    activeSince?: number
+    deactivatedAt?: number
+    animProgress?: number
+    currentTransform?: string
     // MIDI-matched fields (baked by midiMatcher)
     pitches?: number[]        // MIDI pitch numbers from VexFlow keys (e.g. [60, 64, 67])
     velocity?: number         // Matched MIDI velocity (0-127)

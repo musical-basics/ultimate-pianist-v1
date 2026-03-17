@@ -630,7 +630,7 @@ const VexFlowRendererComponent: React.FC<VexFlowRendererProps> = ({
                     // hasGrace check in ScrollView already prevents pop/jump for grace note cases.
                     note.element.style.transformBox = 'fill-box'
                     note.element.style.transformOrigin = 'center center'
-                    note.element.style.transition = 'transform 0.1s ease-out, filter 0.1s'
+                    note.element.style.transition = 'filter 0.1s'
 
                     const coreGroup = note.element.querySelector('.vf-note-core') as HTMLElement
                     if (coreGroup) {
