@@ -27,7 +27,7 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
 
-const FPS = 30
+const FPS = 60
 const INTERNAL_APP_URL = process.env.INTERNAL_APP_URL || 'http://localhost:3000'
 
 // ─── Step 29: Download Audio to Local Disk ──────────────────────────

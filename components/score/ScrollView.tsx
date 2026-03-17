@@ -565,9 +565,9 @@ const ScrollViewComponent: React.FC<ScrollViewProps> = ({
                             // creates a wide bounding box and scale from center causes fly-in
                             const isStudio = !!(window as any).__STUDIO_MODE__
                             if (!note.hasGrace) {
-                                // Studio mode: use reduced magnitudes (no CSS transitions at 30fps)
-                                const popScale = popEffect ? (isStudio ? 1.25 : 1.4) : 1
-                                const jumpPx = jumpEffect ? (isStudio ? -6 : -10) : 0
+                                // At 60fps these match browser values — no need to reduce
+                                const popScale = popEffect ? 1.4 : 1
+                                const jumpPx = jumpEffect ? -10 : 0
                                 tTransform = `scale(${popScale}) translateY(${jumpPx}px)`
                             }
 
