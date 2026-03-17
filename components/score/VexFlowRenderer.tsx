@@ -328,7 +328,7 @@ const VexFlowRendererComponent: React.FC<VexFlowRendererProps> = ({
                                 if (svgEl) {
                                     const group = (svgEl.closest('.vf-stavenote') as HTMLElement) || svgEl
                                     element = group
-                                    pathsAndRects = Array.from(group.querySelectorAll('path, rect')) as HTMLElement[]
+                                    pathsAndRects = Array.from(group.querySelectorAll('path, rect, text')) as HTMLElement[]
                                 }
                             } catch { /* ignore */ }
 

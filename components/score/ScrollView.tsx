@@ -315,6 +315,8 @@ const ScrollViewComponent: React.FC<ScrollViewProps> = ({
         } else {
             Array.from(element.getElementsByTagName('path')).forEach(p => { p.style.fill = color; p.style.stroke = color; p.setAttribute('fill', color); p.setAttribute('stroke', color) })
             Array.from(element.getElementsByTagName('rect')).forEach(r => { r.style.fill = color; r.style.stroke = color; r.setAttribute('fill', color); r.setAttribute('stroke', color) })
+            // DreamFlow renders noteheads/accidentals as <text> font glyphs (Bravura)
+            Array.from(element.getElementsByTagName('text')).forEach(t => { t.style.fill = color; t.setAttribute('fill', color) })
         }
         element.style.fill = color; element.style.stroke = color
     }
