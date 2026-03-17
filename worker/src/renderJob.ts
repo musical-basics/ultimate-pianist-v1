@@ -193,6 +193,25 @@ export async function processRenderJob(job: Job<RenderJobPayload>): Promise<void
     for (let frame = 0; frame < totalFrames; frame++) {
       const timeSec = frame / FPS
 
+      // ─── Cancellation check: poll Supabase every 30 frames ─────
+      if (frame % 30 === 0 && frame > 0) {
+        try {
+          const { data: row } = await supabase
+            .from('video_exports')
+            .select('status')
+            .eq('id', exportId)
+            .single()
+          if (row?.status === 'cancelled') {
+            console.log(`[Render] ⛔ Job ${exportId} cancelled at frame ${frame} — aborting`)
+            ffmpeg.kill('SIGKILL')
+            throw new Error('CANCELLED')
+          }
+        } catch (e) {
+          if ((e as Error).message === 'CANCELLED') throw e
+          // Non-fatal: if Supabase check fails, keep rendering
+        }
+      }
+
       // Log every 10 frames, but EVERY frame from 55-80 for stall diagnosis
       const shouldLog = frame % 10 === 0 || (frame >= 55 && frame <= 80)
 
