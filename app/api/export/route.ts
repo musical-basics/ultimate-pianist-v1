@@ -9,6 +9,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { getVideoExportQueue } from '@/lib/queue'
+import { wakeRailwayWorker } from '@/lib/railway'
 import type { RenderJobPayload } from '@/lib/types/renderJob'
 
 const supabase = createClient(
@@ -56,6 +57,9 @@ export async function POST(req: NextRequest) {
     } satisfies RenderJobPayload)
 
     console.log(`[Export API] Job queued: exportId=${row.id}, configId=${configId}`)
+
+    // Wake the Railway worker (it may be shut down to save Redis commands)
+    await wakeRailwayWorker()
 
     return NextResponse.json({ exportId: row.id, status: 'queued' })
   } catch (err) {
