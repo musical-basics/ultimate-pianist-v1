@@ -107,9 +107,17 @@ export default function AdminDashboard() {
                         <div className="w-8 h-8 border-2 border-purple-500 border-t-transparent rounded-full animate-spin" />
                     </div>
                 ) : error ? (
-                    <div className="text-center py-20">
-                        <p className="text-red-400">{error}</p>
-                        <p className="text-zinc-500 text-sm mt-2">Make sure your Supabase environment variables are set.</p>
+                    <div className="text-center py-20 flex flex-col items-center">
+                        <p className="text-red-400 font-medium">{error}</p>
+                        {error?.toLowerCase().includes('unauthorized') || error?.toLowerCase().includes('auth') ? (
+                            <Link href="/login">
+                                <Button className="bg-purple-600 hover:bg-purple-700 text-white mt-6">
+                                    Sign In to Studio
+                                </Button>
+                            </Link>
+                        ) : (
+                            <p className="text-zinc-500 text-sm mt-2">Make sure your Supabase environment variables are set.</p>
+                        )}
                     </div>
                 ) : configs.length === 0 ? (
                     <div className="text-center py-20 space-y-4">
