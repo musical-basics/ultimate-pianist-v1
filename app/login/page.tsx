@@ -1,4 +1,4 @@
-import { login, signup } from './actions'
+import { login, signup, adminLogin } from './actions'
 import { Button } from '@/components/ui/button'
 
 export default async function LoginPage(props: {
@@ -36,9 +36,23 @@ export default async function LoginPage(props: {
         <Button formAction={login} className="bg-purple-600 hover:bg-purple-700 text-white mb-2">
           Sign In
         </Button>
-        <Button formAction={signup} variant="outline" className="text-zinc-300 border-zinc-800 hover:bg-zinc-800">
+        <Button formAction={signup} variant="outline" className="text-zinc-300 border-zinc-800 hover:bg-zinc-800 mb-6">
           Sign Up
         </Button>
+
+        <div className="relative mb-6">
+          <div className="absolute inset-0 flex items-center">
+            <span className="w-full border-t border-zinc-800" />
+          </div>
+          <div className="relative flex justify-center text-xs uppercase">
+            <span className="bg-zinc-950 px-2 text-zinc-500">Or</span>
+          </div>
+        </div>
+
+        <Button formAction={adminLogin} variant="secondary" className="bg-zinc-800 hover:bg-zinc-700 text-white w-full">
+          1-Click Sign In as Admin
+        </Button>
+
         {searchParams?.message && (
           <p className="mt-4 p-3 bg-red-900/20 border border-red-900/50 text-red-400 text-sm text-center rounded-md">
             {searchParams.message}
