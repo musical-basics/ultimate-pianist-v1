@@ -9,7 +9,8 @@
     "lint": "eslint ."
   },
   "dependencies": {
-    "@aws-sdk/client-s3": "^3.990.0",
+    "@aws-sdk/client-s3": "^3.1017.0",
+    "@aws-sdk/s3-request-presigner": "^3.1017.0",
     "@google/genai": "^1.41.0",
     "@hookform/resolvers": "^3.9.1",
     "@radix-ui/react-accordion": "1.2.12",

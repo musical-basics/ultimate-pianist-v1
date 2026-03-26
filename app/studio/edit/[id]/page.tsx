@@ -16,7 +16,7 @@ import { useMusicFont } from '@/hooks/useMusicFont'
 import { getPlaybackManager } from '@/lib/engine/PlaybackManager'
 import { parseMidiFile } from '@/lib/midi/parser'
 import type { SongConfig, ParsedMidi, BeatAnchor, XMLEvent, V5MapperState } from '@/lib/types'
-import { fetchConfigById, updateConfigAction } from '@/app/actions/config'
+import { fetchConfigById, updateConfigAction, generateUploadUrlAction } from '@/app/actions/config'
 
 export default function AdminEditor() {
     const params = useParams()
@@ -151,13 +151,12 @@ export default function AdminEditor() {
     const handleAudioUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0]; if (!file) return
         try {
-            const formData = new FormData()
-            formData.append('file', file); formData.append('configId', configId); formData.append('fileType', 'audio')
-            const res = await fetch('/api/upload', { method: 'POST', body: formData })
-            const { url, error } = await res.json()
-            if (error) throw new Error(error)
-            await updateConfigAction(configId, { audio_url: url })
-            setConfig((prev) => prev ? { ...prev, audio_url: url } : prev)
+            const contentType = file.type || 'audio/wav'
+            const { uploadUrl, finalFileUrl } = await generateUploadUrlAction(configId, 'audio', file.name, contentType)
+            const res = await fetch(uploadUrl, { method: 'PUT', body: file, headers: { 'Content-Type': contentType } })
+            if (!res.ok) throw new Error('Failed to upload file to R2')
+            await updateConfigAction(configId, { audio_url: finalFileUrl })
+            setConfig((prev) => prev ? { ...prev, audio_url: finalFileUrl } : prev)
         } catch (err) { console.error(err) }
         e.target.value = ''
     }
@@ -165,13 +164,12 @@ export default function AdminEditor() {
     const handleXmlUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0]; if (!file) return
         try {
-            const formData = new FormData()
-            formData.append('file', file); formData.append('configId', configId); formData.append('fileType', 'xml')
-            const res = await fetch('/api/upload', { method: 'POST', body: formData })
-            const { url, error } = await res.json()
-            if (error) throw new Error(error)
-            await updateConfigAction(configId, { xml_url: url })
-            setConfig((prev) => prev ? { ...prev, xml_url: url } : prev)
+            const contentType = file.type || 'application/xml'
+            const { uploadUrl, finalFileUrl } = await generateUploadUrlAction(configId, 'xml', file.name, contentType)
+            const res = await fetch(uploadUrl, { method: 'PUT', body: file, headers: { 'Content-Type': contentType } })
+            if (!res.ok) throw new Error('Failed to upload file to R2')
+            await updateConfigAction(configId, { xml_url: finalFileUrl })
+            setConfig((prev) => prev ? { ...prev, xml_url: finalFileUrl } : prev)
         } catch (err) { console.error(err) }
         e.target.value = ''
     }
@@ -179,13 +177,12 @@ export default function AdminEditor() {
     const handleMidiUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0]; if (!file) return
         try {
-            const formData = new FormData()
-            formData.append('file', file); formData.append('configId', configId); formData.append('fileType', 'midi')
-            const res = await fetch('/api/upload', { method: 'POST', body: formData })
-            const { url, error } = await res.json()
-            if (error) throw new Error(error)
-            await updateConfigAction(configId, { midi_url: url })
-            setConfig((prev) => prev ? { ...prev, midi_url: url } : prev)
+            const contentType = file.type || 'audio/midi'
+            const { uploadUrl, finalFileUrl } = await generateUploadUrlAction(configId, 'midi', file.name, contentType)
+            const res = await fetch(uploadUrl, { method: 'PUT', body: file, headers: { 'Content-Type': contentType } })
+            if (!res.ok) throw new Error('Failed to upload file to R2')
+            await updateConfigAction(configId, { midi_url: finalFileUrl })
+            setConfig((prev) => prev ? { ...prev, midi_url: finalFileUrl } : prev)
 
             const buffer = await file.arrayBuffer()
             const parsed = parseMidiFile(buffer, file.name)

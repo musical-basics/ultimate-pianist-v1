@@ -5,6 +5,7 @@
 
 import { createClient, SupabaseClient } from '@supabase/supabase-js'
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3'
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
 import type { SongConfig, Anchor, BeatAnchor } from '@/lib/types'
 
 // ─── Supabase Client (Service Role) ──────────────────────────────
@@ -37,46 +38,44 @@ function getR2PublicDomain(): string {
     return process.env.R2_PUBLIC_DOMAIN || process.env.VITE_R2_PUBLIC_DOMAIN || ''
 }
 
-// ─── File Upload ─────────────────────────────────────────────────
+// ─── File Upload (Presigned URL) ─────────────────────────────────
 
-export async function uploadFile(
-    file: File | Blob,
-    path: string,
-    contentType: string
-): Promise<string> {
+export async function generateUploadUrl(
+    configId: string,
+    fileType: 'audio' | 'xml' | 'midi',
+    fileName: string,
+    contentType: string,
+    userId: string
+): Promise<{ uploadUrl: string; finalFileUrl: string }> {
     const r2 = getR2Client()
     const bucket = getR2Bucket()
     const domain = getR2PublicDomain()
 
-    const buffer = Buffer.from(await (file as Blob).arrayBuffer())
+    const ext = fileName.split('.').pop() || 'bin'
+    let fileKey = ''
 
-    await r2.send(
-        new PutObjectCommand({
-            Bucket: bucket,
-            Key: path,
-            Body: buffer,
-            ContentType: contentType,
-        })
-    )
+    if (fileType === 'audio') {
+        fileKey = `audio.${ext}`
+    } else if (fileType === 'xml') {
+        fileKey = `score.xml`
+    } else if (fileType === 'midi') {
+        fileKey = `midi.${ext}`
+    } else {
+        throw new Error('Invalid file type')
+    }
 
-    return `${domain}/${path}`
-}
+    const path = `users/${userId}/configs/${configId}/${fileKey}`
 
-export async function uploadAudio(file: File, configId: string, userId: string): Promise<string> {
-    const ext = file.name.split('.').pop() || 'wav'
-    const path = `users/${userId}/configs/${configId}/audio.${ext}`
-    return uploadFile(file, path, file.type || 'audio/wav')
-}
+    const command = new PutObjectCommand({
+        Bucket: bucket,
+        Key: path,
+        ContentType: contentType,
+    })
 
-export async function uploadXml(file: File, configId: string, userId: string): Promise<string> {
-    const path = `users/${userId}/configs/${configId}/score.xml`
-    return uploadFile(file, path, 'application/xml')
-}
+    const uploadUrl = await getSignedUrl(r2, command, { expiresIn: 3600 })
+    const finalFileUrl = `${domain}/${path}`
 
-export async function uploadMidi(file: File, configId: string, userId: string): Promise<string> {
-    const ext = file.name.split('.').pop() || 'mid'
-    const path = `users/${userId}/configs/${configId}/midi.${ext}`
-    return uploadFile(file, path, 'audio/midi')
+    return { uploadUrl, finalFileUrl }
 }
 
 // ─── CRUD Operations ─────────────────────────────────────────────

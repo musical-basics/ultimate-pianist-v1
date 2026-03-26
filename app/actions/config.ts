@@ -15,9 +15,7 @@ import {
     deleteConfig,
     togglePublish,
     saveAnchors,
-    uploadAudio,
-    uploadXml,
-    uploadMidi,
+    generateUploadUrl,
 } from '@/lib/services/configService'
 import type { SongConfig, Anchor, BeatAnchor } from '@/lib/types'
 
@@ -79,25 +77,14 @@ export async function saveAnchorsAction(
     return saveAnchors(id, anchors, beatAnchors, user.id)
 }
 
-export async function uploadAudioAction(formData: FormData, configId: string): Promise<string> {
+export async function generateUploadUrlAction(
+    configId: string,
+    fileType: 'audio' | 'xml' | 'midi',
+    fileName: string,
+    contentType: string
+): Promise<{ uploadUrl: string; finalFileUrl: string }> {
     const user = await getAuthUser()
-    const file = formData.get('file') as File
-    if (!file) throw new Error('No file provided')
-    return uploadAudio(file, configId, user.id)
-}
-
-export async function uploadXmlAction(formData: FormData, configId: string): Promise<string> {
-    const user = await getAuthUser()
-    const file = formData.get('file') as File
-    if (!file) throw new Error('No file provided')
-    return uploadXml(file, configId, user.id)
-}
-
-export async function uploadMidiAction(formData: FormData, configId: string): Promise<string> {
-    const user = await getAuthUser()
-    const file = formData.get('file') as File
-    if (!file) throw new Error('No file provided')
-    return uploadMidi(file, configId, user.id)
+    return generateUploadUrl(configId, fileType, fileName, contentType, user.id)
 }
 
 export async function duplicateConfigAction(
