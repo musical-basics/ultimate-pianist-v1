@@ -9,6 +9,7 @@ import {
     getAllConfigs,
     getPublishedConfigs,
     getConfigById,
+    getPublicConfigById,
     createConfig,
     updateConfig,
     deleteConfig,
@@ -37,8 +38,13 @@ export async function fetchPublishedConfigs(): Promise<SongConfig[]> {
 }
 
 export async function fetchConfigById(id: string): Promise<SongConfig | null> {
-    const user = await getAuthUser()
-    return getConfigById(id, user.id)
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    
+    if (user) {
+        return getConfigById(id, user.id)
+    }
+    return getPublicConfigById(id)
 }
 
 export async function createNewConfig(title?: string): Promise<SongConfig> {

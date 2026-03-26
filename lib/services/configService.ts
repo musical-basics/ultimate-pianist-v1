@@ -109,6 +109,22 @@ export async function getConfigById(id: string, userId: string): Promise<SongCon
     return data as SongConfig
 }
 
+export async function getPublicConfigById(id: string): Promise<SongConfig | null> {
+    const sb = getSupabase()
+    const { data, error } = await sb
+        .from('configurations')
+        .select('*')
+        .eq('id', id)
+        .eq('is_published', true)
+        .single()
+
+    if (error) {
+        console.error('Failed to get public config:', error.message)
+        return null
+    }
+    return data as SongConfig
+}
+
 export async function getAllConfigs(userId: string): Promise<SongConfig[]> {
     const sb = getSupabase()
     const { data, error } = await sb
