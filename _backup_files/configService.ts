@@ -62,30 +62,30 @@ export async function uploadFile(
     return `${domain}/${path}`
 }
 
-export async function uploadAudio(file: File, configId: string, userId: string): Promise<string> {
+export async function uploadAudio(file: File, configId: string): Promise<string> {
     const ext = file.name.split('.').pop() || 'wav'
-    const path = `users/${userId}/configs/${configId}/audio.${ext}`
+    const path = `configs/${configId}/audio.${ext}`
     return uploadFile(file, path, file.type || 'audio/wav')
 }
 
-export async function uploadXml(file: File, configId: string, userId: string): Promise<string> {
-    const path = `users/${userId}/configs/${configId}/score.xml`
+export async function uploadXml(file: File, configId: string): Promise<string> {
+    const path = `configs/${configId}/score.xml`
     return uploadFile(file, path, 'application/xml')
 }
 
-export async function uploadMidi(file: File, configId: string, userId: string): Promise<string> {
+export async function uploadMidi(file: File, configId: string): Promise<string> {
     const ext = file.name.split('.').pop() || 'mid'
-    const path = `users/${userId}/configs/${configId}/midi.${ext}`
+    const path = `configs/${configId}/midi.${ext}`
     return uploadFile(file, path, 'audio/midi')
 }
 
 // ─── CRUD Operations ─────────────────────────────────────────────
 
-export async function createConfig(title: string = 'Untitled', userId: string): Promise<SongConfig> {
+export async function createConfig(title: string = 'Untitled'): Promise<SongConfig> {
     const sb = getSupabase()
     const { data, error } = await sb
         .from('configurations')
-        .insert({ title, user_id: userId })
+        .insert({ title })
         .select()
         .single()
 
@@ -93,13 +93,12 @@ export async function createConfig(title: string = 'Untitled', userId: string): 
     return data as SongConfig
 }
 
-export async function getConfigById(id: string, userId: string): Promise<SongConfig | null> {
+export async function getConfigById(id: string): Promise<SongConfig | null> {
     const sb = getSupabase()
     const { data, error } = await sb
         .from('configurations')
         .select('*')
         .eq('id', id)
-        .eq('user_id', userId)
         .single()
 
     if (error) {
@@ -109,12 +108,11 @@ export async function getConfigById(id: string, userId: string): Promise<SongCon
     return data as SongConfig
 }
 
-export async function getAllConfigs(userId: string): Promise<SongConfig[]> {
+export async function getAllConfigs(): Promise<SongConfig[]> {
     const sb = getSupabase()
     const { data, error } = await sb
         .from('configurations')
         .select('*')
-        .eq('user_id', userId)
         .order('updated_at', { ascending: false })
 
     if (error) throw new Error(`Failed to list configs: ${error.message}`)
@@ -135,15 +133,13 @@ export async function getPublishedConfigs(): Promise<SongConfig[]> {
 
 export async function updateConfig(
     id: string,
-    updates: Partial<Pick<SongConfig, 'title' | 'audio_url' | 'xml_url' | 'midi_url' | 'anchors' | 'beat_anchors' | 'subdivision' | 'is_level2' | 'ai_anchors' | 'is_published'>>,
-    userId: string
+    updates: Partial<Pick<SongConfig, 'title' | 'audio_url' | 'xml_url' | 'midi_url' | 'anchors' | 'beat_anchors' | 'subdivision' | 'is_level2' | 'ai_anchors' | 'is_published'>>
 ): Promise<SongConfig> {
     const sb = getSupabase()
     const { data, error } = await sb
         .from('configurations')
         .update(updates)
         .eq('id', id)
-        .eq('user_id', userId)
         .select()
         .single()
 
@@ -151,13 +147,12 @@ export async function updateConfig(
     return data as SongConfig
 }
 
-export async function deleteConfig(id: string, userId: string): Promise<void> {
+export async function deleteConfig(id: string): Promise<void> {
     const sb = getSupabase()
     const { error } = await sb
         .from('configurations')
         .delete()
         .eq('id', id)
-        .eq('user_id', userId)
 
     if (error) throw new Error(`Failed to delete config: ${error.message}`)
 }
@@ -165,26 +160,24 @@ export async function deleteConfig(id: string, userId: string): Promise<void> {
 export async function saveAnchors(
     id: string,
     anchors: Anchor[],
-    beatAnchors: BeatAnchor[] | undefined,
-    userId: string
+    beatAnchors?: BeatAnchor[]
 ): Promise<void> {
     const updates: Record<string, unknown> = { anchors }
     if (beatAnchors) updates.beat_anchors = beatAnchors
-    await updateConfig(id, updates as Partial<SongConfig>, userId)
+    await updateConfig(id, updates as Partial<SongConfig>)
 }
 
-export async function togglePublish(id: string, published: boolean, userId: string): Promise<void> {
-    await updateConfig(id, { is_published: published }, userId)
+export async function togglePublish(id: string, published: boolean): Promise<void> {
+    await updateConfig(id, { is_published: published })
 }
 
 // ─── Corrections for AI Learning ─────────────────────────────────
 
-export async function getConfigsWithCorrections(userId: string): Promise<SongConfig[]> {
+export async function getConfigsWithCorrections(): Promise<SongConfig[]> {
     const sb = getSupabase()
     const { data, error } = await sb
         .from('configurations')
         .select('*')
-        .eq('user_id', userId)
         .not('ai_anchors', 'is', null)
         .order('updated_at', { ascending: false })
         .limit(10)

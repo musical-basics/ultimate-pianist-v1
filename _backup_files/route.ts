@@ -5,17 +5,9 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { uploadAudio, uploadXml, uploadMidi } from '@/lib/services/configService'
-import { createClient } from '@/lib/supabase/server'
 
 export async function POST(request: NextRequest) {
     try {
-        const supabase = await createClient()
-        const { data: { user }, error } = await supabase.auth.getUser()
-
-        if (error || !user) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-        }
-
         const formData = await request.formData()
         const file = formData.get('file') as File
         const configId = formData.get('configId') as string
@@ -32,13 +24,13 @@ export async function POST(request: NextRequest) {
 
         switch (fileType) {
             case 'audio':
-                url = await uploadAudio(file, configId, user.id)
+                url = await uploadAudio(file, configId)
                 break
             case 'xml':
-                url = await uploadXml(file, configId, user.id)
+                url = await uploadXml(file, configId)
                 break
             case 'midi':
-                url = await uploadMidi(file, configId, user.id)
+                url = await uploadMidi(file, configId)
                 break
             default:
                 return NextResponse.json(
