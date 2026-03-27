@@ -243,20 +243,4 @@ Calls `stepV5()` in a loop. When a pause occurs (ghost anchor), it **auto-confir
        └─────────┘
 ```
 
----
 
-## 8. Evolution from V3/V4
-
-| Version | Approach | Granularity | Pitch-Aware | Interactive |
-|---------|----------|-------------|-------------|-------------|
-| **V3** | Count notes per measure, match via "echolocation feeler" window | Measure-level only | ❌ | ❌ |
-| **V4** | Group MIDI into chord clusters, distribute XML events to chords | Beat-level (1:1 chord mapping) | ❌ | ❌ |
-| **V5** | Pitch-matching with AQNTL tempo tracking, ghost anchor workflow | Beat-level (pitch-verified) | ✅ | ✅ (step-through + ghost anchors) |
-
-**Key V5 innovations**:
-- **Pitch verification** — matches MIDI notes by actual pitch, not just count.
-- **Adaptive tempo** — exponential moving average tracks the performer's live BPM.
-- **Ghost anchors** — when the mapper gets lost, it surfaces a proposed anchor for human confirmation instead of silently accumulating errors.
-- **Fermata handling** — after a fermata, bypasses the AQNTL window and does an unbounded forward scan to re-sync.
-- **Runaway detection** — auto-pauses when confidence drops below threshold.
-- **Fresh-scan mode** — after 3+ consecutive misses, switches to unbounded forward scanning to recover from any timing disruption.
